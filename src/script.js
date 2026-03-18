@@ -129,10 +129,24 @@ function showDashboard() {
     // Show Blynk Template Info if provided
     const templateId = process.env.VITE_BLYNK_TEMPLATE_ID;
     const templateName = process.env.VITE_BLYNK_TEMPLATE_NAME;
+    const authToken = process.env.BLYNK_AUTH_TOKEN;
+
     if (templateId && templateName) {
         document.getElementById('template-info').classList.remove('hidden');
         document.getElementById('template-id').textContent = templateId;
         document.getElementById('template-name').textContent = templateName;
+    }
+
+    // Show a warning if keys are missing
+    if (!templateId || !templateName || !authToken || authToken === 'YOUR_BLYNK_AUTH_TOKEN') {
+        addLog("CRITICAL: Blynk API Keys are missing! Check your Secrets/Environment Variables.", "error");
+        const warningEl = document.createElement('div');
+        warningEl.className = 'bg-red-500 text-white p-4 rounded-xl mb-6 text-center animate-pulse';
+        warningEl.innerHTML = `
+            <p class='font-bold'>⚠️ Missing Blynk Configuration</p>
+            <p class='text-xs'>Please add <b>BLYNK_AUTH_TOKEN</b>, <b>VITE_BLYNK_TEMPLATE_ID</b>, and <b>VITE_BLYNK_TEMPLATE_NAME</b> to your environment variables.</p>
+        `;
+        dashboard.prepend(warningEl);
     }
 
     renderHistory();

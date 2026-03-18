@@ -28,7 +28,7 @@ async function startServer() {
     }
 
     // Extract the path from params for reliability
-    const blynkPath = req.params.path || "";
+    const blynkPath = (req.params as any).path || "";
     
     // Get the original query string
     const originalQuery = req.url.includes("?") ? req.url.split("?")[1] : "";
