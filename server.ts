@@ -17,7 +17,7 @@ async function startServer() {
 
   // Blynk Proxy Endpoint
   // This allows the frontend to call Blynk without exposing the Auth Token
-  app.all("/api/blynk/*", async (req, res) => {
+  app.all("/api/blynk/(.*)", async (req, res) => {
     const blynkToken = process.env.BLYNK_AUTH_TOKEN;
     if (!blynkToken) {
       return res.status(500).json({ error: "BLYNK_AUTH_TOKEN not configured in backend" });
