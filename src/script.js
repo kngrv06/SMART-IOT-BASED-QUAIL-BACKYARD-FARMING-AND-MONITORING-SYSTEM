@@ -24,8 +24,7 @@ const auth = getAuth(app);
 
 // Blynk Configuration
 const blynkConfig = {
-    authToken: localStorage.getItem('blynk_token') || '', 
-    baseUrl: 'https://blynk.cloud/external/api',
+    baseUrl: '/api/blynk', // Use backend proxy
     pollInterval: 5000, 
 };
 
@@ -64,35 +63,6 @@ const terminalLog = document.getElementById('terminal-log');
 const currentTimeDisplay = document.getElementById('current-time');
 const currentDateDisplay = document.getElementById('current-date');
 const enableNotifsBtn = document.getElementById('enable-notifs');
-const settingsModal = document.getElementById('settings-modal');
-const openSettingsBtn = document.getElementById('open-settings');
-const closeSettingsBtn = document.getElementById('close-settings');
-const saveSettingsBtn = document.getElementById('save-settings');
-const settingsTokenInput = document.getElementById('settings-token');
-
-// --- Settings Logic ---
-
-openSettingsBtn.addEventListener('click', () => {
-    settingsTokenInput.value = blynkConfig.authToken;
-    settingsModal.classList.remove('hidden');
-});
-
-closeSettingsBtn.addEventListener('click', () => {
-    settingsModal.classList.add('hidden');
-});
-
-saveSettingsBtn.addEventListener('click', () => {
-    const newToken = settingsTokenInput.value.trim();
-    if (newToken) {
-        blynkConfig.authToken = newToken;
-        localStorage.setItem('blynk_token', newToken);
-        addLog("Blynk Auth Token updated. Reconnecting...");
-        settingsModal.classList.add('hidden');
-        startPolling(); // Restart polling with new token
-    } else {
-        alert("Please enter a valid token.");
-    }
-});
 
 // --- Authentication Logic ---
 
@@ -163,14 +133,6 @@ function showDashboard() {
 // --- Blynk API Integration ---
 
 async function fetchBlynkData() {
-    if (!blynkConfig.authToken) {
-        updateStatus(false);
-        if (currentUser) {
-            addLog("Missing Blynk Auth Token. Please enter it in settings.", "warn");
-        }
-        return;
-    }
-
     // We fetch pins in a way that handles potential missing pins in the template
     const sensorPins = ['V0', 'V1', 'V2', 'V3'];
     const actuatorPins = ['V10', 'V11', 'V12', 'V13', 'V4'];
@@ -178,8 +140,8 @@ async function fetchBlynkData() {
     const allPins = [...sensorPins, ...actuatorPins, ...schedulePins];
 
     try {
-        // Try batch fetch first
-        const url = `${blynkConfig.baseUrl}/get?token=${blynkConfig.authToken}&${allPins.join('&')}`;
+        // Try batch fetch first via proxy (token is handled by backend)
+        const url = `${blynkConfig.baseUrl}/get?${allPins.join('&')}`;
         const response = await fetch(url);
         
         if (response.ok) {
@@ -218,9 +180,7 @@ async function fetchBlynkData() {
 }
 
 async function updateBlynkPin(pin, value) {
-    if (!blynkConfig.authToken) return false;
-    
-    const url = `${blynkConfig.baseUrl}/update?token=${blynkConfig.authToken}&${pin}=${value}`;
+    const url = `${blynkConfig.baseUrl}/update?${pin}=${value}`;
     try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -244,11 +204,6 @@ async function saveSettings() {
     const cleanDur = document.getElementById('cleaner-duration').value;
     const lightStart = document.getElementById('light-start').value;
     const lightEnd = document.getElementById('light-end').value;
-
-    if (!blynkConfig.authToken) {
-        addLog("Error: Blynk Auth Token is missing. Connection cannot be established.", "error");
-        return;
-    }
 
     const timeToMins = (t) => {
         if (!t) return 0;
