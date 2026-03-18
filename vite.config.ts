@@ -9,6 +9,9 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.BLYNK_AUTH_TOKEN': JSON.stringify(env.BLYNK_AUTH_TOKEN),
+      'process.env.VITE_BLYNK_TEMPLATE_ID': JSON.stringify(env.VITE_BLYNK_TEMPLATE_ID),
+      'process.env.VITE_BLYNK_TEMPLATE_NAME': JSON.stringify(env.VITE_BLYNK_TEMPLATE_NAME),
     },
     resolve: {
       alias: {

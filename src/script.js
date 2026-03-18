@@ -125,6 +125,16 @@ function showAuthOverlay() {
 function showDashboard() {
     authOverlay.classList.add('hidden');
     dashboard.classList.remove('hidden');
+    
+    // Show Blynk Template Info if provided
+    const templateId = process.env.VITE_BLYNK_TEMPLATE_ID;
+    const templateName = process.env.VITE_BLYNK_TEMPLATE_NAME;
+    if (templateId && templateName) {
+        document.getElementById('template-info').classList.remove('hidden');
+        document.getElementById('template-id').textContent = templateId;
+        document.getElementById('template-name').textContent = templateName;
+    }
+
     renderHistory();
     startPolling();
     checkNotificationPermission();
@@ -153,7 +163,7 @@ async function fetchBlynkData() {
             addLog("Batch fetch failed, attempting individual pin updates...", "warn");
             for (const pin of allPins) {
                 try {
-                    const pUrl = `${blynkConfig.baseUrl}/get?token=${blynkConfig.authToken}&${pin}`;
+                    const pUrl = `${blynkConfig.baseUrl}/get?${pin}`;
                     const pRes = await fetch(pUrl);
                     if (pRes.ok) {
                         const val = await pRes.text();
@@ -227,7 +237,7 @@ async function saveSettings() {
 
     for (const [pin, val] of Object.entries(settings)) {
         try {
-            const url = `${blynkConfig.baseUrl}/update?token=${blynkConfig.authToken}&${pin}=${val}`;
+            const url = `${blynkConfig.baseUrl}/update?${pin}=${val}`;
             const response = await fetch(url);
             if (!response.ok) {
                 const errText = await response.text();

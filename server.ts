@@ -17,7 +17,7 @@ async function startServer() {
 
   // Blynk Proxy Endpoint
   // This allows the frontend to call Blynk without exposing the Auth Token
-  app.all("/api/blynk/(.*)", async (req, res) => {
+  app.all("/api/blynk/:path*", async (req, res) => {
     const blynkToken = process.env.BLYNK_AUTH_TOKEN;
     if (!blynkToken) {
       return res.status(500).json({ error: "BLYNK_AUTH_TOKEN not configured in backend" });
@@ -26,10 +26,12 @@ async function startServer() {
     // Extract the path after /api/blynk/
     // Example: /api/blynk/get?v0 -> blynk.cloud/external/api/get?token=...&v0
     const blynkPath = req.path.replace("/api/blynk/", "");
-    const queryParams = new URLSearchParams(req.query as any);
-    queryParams.set("token", blynkToken);
-
-    const blynkUrl = `https://blynk.cloud/external/api/${blynkPath}?${queryParams.toString()}`;
+    
+    // Get the original query string from the request URL
+    const originalQuery = req.url.includes("?") ? req.url.split("?")[1] : "";
+    
+    // Construct the Blynk URL by prepending the token to the original query
+    const blynkUrl = `https://blynk.cloud/external/api/${blynkPath}?token=${blynkToken}${originalQuery ? "&" + originalQuery : ""}`;
 
     try {
       const response = await fetch(blynkUrl, {
