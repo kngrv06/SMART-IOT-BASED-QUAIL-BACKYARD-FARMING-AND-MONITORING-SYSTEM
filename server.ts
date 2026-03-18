@@ -16,21 +16,25 @@ async function startServer() {
   app.use(express.json());
 
   // Blynk Proxy Endpoint
-  // This allows the frontend to call Blynk without exposing the Auth Token
   app.all("/api/blynk/:path*", async (req, res) => {
     const blynkToken = process.env.BLYNK_AUTH_TOKEN;
-    if (!blynkToken) {
-      return res.status(500).json({ error: "BLYNK_AUTH_TOKEN not configured in backend" });
+    
+    if (!blynkToken || blynkToken === "YOUR_BLYNK_AUTH_TOKEN") {
+      console.error("Blynk Error: BLYNK_AUTH_TOKEN is missing or not configured.");
+      return res.status(500).json({ 
+        error: "BLYNK_AUTH_TOKEN not configured",
+        details: "Please add BLYNK_AUTH_TOKEN to your AI Studio Secrets (Settings -> Secrets)."
+      });
     }
 
-    // Extract the path after /api/blynk/
-    // Example: /api/blynk/get?v0 -> blynk.cloud/external/api/get?token=...&v0
-    const blynkPath = req.path.replace("/api/blynk/", "");
+    // Extract the path from params for reliability
+    const blynkPath = req.params.path || "";
     
-    // Get the original query string from the request URL
+    // Get the original query string
     const originalQuery = req.url.includes("?") ? req.url.split("?")[1] : "";
     
-    // Construct the Blynk URL by prepending the token to the original query
+    // Construct the Blynk URL
+    // We use blynk.cloud which should redirect to the correct regional server
     const blynkUrl = `https://blynk.cloud/external/api/${blynkPath}?token=${blynkToken}${originalQuery ? "&" + originalQuery : ""}`;
 
     try {
@@ -42,15 +46,19 @@ async function startServer() {
 
       const data = await response.text();
       
-      // Try to parse as JSON if possible, otherwise send as text
+      if (!response.ok) {
+        console.warn(`Blynk API returned ${response.status}: ${data}`);
+        return res.status(response.status).send(data);
+      }
+
       try {
         res.json(JSON.parse(data));
       } catch {
         res.send(data);
       }
     } catch (error) {
-      console.error("Blynk Proxy Error:", error);
-      res.status(500).json({ error: "Failed to connect to Blynk" });
+      console.error("Blynk Proxy Fetch Error:", error);
+      res.status(500).json({ error: "Failed to connect to Blynk Cloud" });
     }
   });
 
