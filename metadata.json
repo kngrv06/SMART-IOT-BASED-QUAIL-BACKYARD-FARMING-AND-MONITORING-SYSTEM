@@ -1,0 +1,7 @@
+{
+  "name": "Smart Quail Farm IoT Dashboard",
+  "description": "A real-time IoT dashboard for backyard quail farming using Blynk and ESP32. Monitor sensors, control actuators, and manage schedules.",
+  "requestFramePermissions": [
+    "notifications"
+  ]
+}

@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Custom scrollbar for terminal */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 10px;
+}
+
+/* Toggle Switch Styling */
+.toggle-btn.active {
+    background-color: #10b981; /* emerald-500 */
+}
+.toggle-btn.active .dot {
+    transform: translateX(24px);
+}
+
+/* Animations */
+@keyframes pulse-emerald {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.animate-pulse-emerald {
+    animation: pulse-emerald 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Hide default summary arrow */
+summary::-webkit-details-marker {
+    display: none;
+}
+summary {
+    list-style: none;
+}
