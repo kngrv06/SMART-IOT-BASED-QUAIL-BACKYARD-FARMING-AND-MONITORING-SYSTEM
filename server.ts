@@ -34,20 +34,41 @@ async function startServer() {
     const originalQuery = req.url.includes("?") ? req.url.split("?")[1] : "";
     
     // Construct the Blynk URL
-    // We use blynk.cloud which should redirect to the correct regional server
+    // We try to use regional server if blynk.cloud fails or for better performance
+    // For Philippines/Asia, sgp1 is common.
     const blynkUrl = `https://blynk.cloud/external/api/${blynkPath}?token=${blynkToken}${originalQuery ? "&" + originalQuery : ""}`;
+    const sgpUrl = `https://sgp1.blynk.cloud/external/api/${blynkPath}?token=${blynkToken}${originalQuery ? "&" + originalQuery : ""}`;
 
     try {
-      const response = await fetch(blynkUrl, {
+      console.log(`Blynk Proxy: Fetching ${blynkPath}...`);
+      let response = await fetch(blynkUrl, {
         method: req.method,
         headers: req.method === "POST" ? { "Content-Type": "application/json" } : {},
         body: req.method === "POST" ? JSON.stringify(req.body) : undefined,
       });
 
+      // If blynk.cloud returns 404 or fails, try sgp1 (common for Philippines)
+      if (!response.ok && response.status === 404) {
+        console.log("Blynk Proxy: blynk.cloud returned 404, trying sgp1.blynk.cloud...");
+        response = await fetch(sgpUrl, {
+          method: req.method,
+          headers: req.method === "POST" ? { "Content-Type": "application/json" } : {},
+          body: req.method === "POST" ? JSON.stringify(req.body) : undefined,
+        });
+      }
+
       const data = await response.text();
       
       if (!response.ok) {
         console.warn(`Blynk API returned ${response.status}: ${data}`);
+        // If it's still 404, it might be an invalid token or pin
+        if (response.status === 404) {
+          return res.status(404).json({ 
+            error: "Blynk Resource Not Found", 
+            details: "The Auth Token might be invalid or the Virtual Pin does not exist in your template.",
+            blynkResponse: data
+          });
+        }
         return res.status(response.status).send(data);
       }
 
