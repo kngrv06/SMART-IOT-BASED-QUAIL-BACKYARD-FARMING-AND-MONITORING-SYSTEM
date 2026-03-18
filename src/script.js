@@ -191,7 +191,15 @@ async function fetchBlynkData() {
             }
             updateStatus(true);
         } else {
-            throw new Error(`Server returned ${response.status}`);
+            const errorText = await response.text();
+            let errorMessage = `Server returned ${response.status}`;
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.details) {
+                    errorMessage = `${errorJson.error}: ${errorJson.details}`;
+                }
+            } catch (e) {}
+            throw new Error(errorMessage);
         }
     } catch (error) {
         console.error("Fetch error:", error);
@@ -209,7 +217,16 @@ async function updateBlynkPin(pin, value) {
         const response = await fetch(url);
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(errorText || "Update failed");
+            let errorMessage = errorText;
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.details) {
+                    errorMessage = `${errorJson.error}: ${errorJson.details}`;
+                }
+            } catch (e) {
+                // Not a JSON, use raw text
+            }
+            throw new Error(errorMessage || "Update failed");
         }
         addLog(`Updated ${pin} to ${value}`);
         farmState[pin.toLowerCase()] = value;

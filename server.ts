@@ -15,73 +15,84 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Blynk Proxy Endpoint
-  app.all("/api/blynk/:path*", async (req, res) => {
-    const blynkToken = process.env.BLYNK_AUTH_TOKEN;
-    
-    if (!blynkToken || blynkToken === "YOUR_BLYNK_AUTH_TOKEN") {
-      console.error("Blynk Error: BLYNK_AUTH_TOKEN is missing or not configured.");
-      return res.status(500).json({ 
-        error: "BLYNK_AUTH_TOKEN not configured",
-        details: "Please add BLYNK_AUTH_TOKEN to your AI Studio Secrets (Settings -> Secrets)."
-      });
-    }
-
-    // Extract the path from params for reliability
-    const blynkPath = (req.params as any).path || "";
-    
-    // Get the original query string
-    const originalQuery = req.url.includes("?") ? req.url.split("?")[1] : "";
-    
-    // Construct the Blynk URL
-    // We try to use regional server if blynk.cloud fails or for better performance
-    // For Philippines/Asia, sgp1 is common.
-    const blynkUrl = `https://blynk.cloud/external/api/${blynkPath}?token=${blynkToken}${originalQuery ? "&" + originalQuery : ""}`;
-    const sgpUrl = `https://sgp1.blynk.cloud/external/api/${blynkPath}?token=${blynkToken}${originalQuery ? "&" + originalQuery : ""}`;
-
-    try {
-      console.log(`Blynk Proxy: Fetching ${blynkPath}...`);
-      let response = await fetch(blynkUrl, {
-        method: req.method,
-        headers: req.method === "POST" ? { "Content-Type": "application/json" } : {},
-        body: req.method === "POST" ? JSON.stringify(req.body) : undefined,
-      });
-
-      // If blynk.cloud returns 404 or fails, try sgp1 (common for Philippines)
-      if (!response.ok && response.status === 404) {
-        console.log("Blynk Proxy: blynk.cloud returned 404, trying sgp1.blynk.cloud...");
-        response = await fetch(sgpUrl, {
-          method: req.method,
-          headers: req.method === "POST" ? { "Content-Type": "application/json" } : {},
-          body: req.method === "POST" ? JSON.stringify(req.body) : undefined,
-        });
-      }
-
-      const data = await response.text();
-      
-      if (!response.ok) {
-        console.warn(`Blynk API returned ${response.status}: ${data}`);
-        // If it's still 404, it might be an invalid token or pin
-        if (response.status === 404) {
-          return res.status(404).json({ 
-            error: "Blynk Resource Not Found", 
-            details: "The Auth Token might be invalid or the Virtual Pin does not exist in your template.",
-            blynkResponse: data
-          });
+    // Blynk Proxy Endpoint
+    app.all("/api/blynk/*", async (req, res) => {
+        let blynkToken = process.env.BLYNK_AUTH_TOKEN;
+        
+        if (!blynkToken || blynkToken === "YOUR_BLYNK_AUTH_TOKEN") {
+            console.error("Blynk Error: BLYNK_AUTH_TOKEN is missing or not configured.");
+            return res.status(500).json({ 
+                error: "BLYNK_AUTH_TOKEN not configured",
+                details: "Please add BLYNK_AUTH_TOKEN to your AI Studio Secrets (Settings -> Secrets)."
+            });
         }
-        return res.status(response.status).send(data);
-      }
 
-      try {
-        res.json(JSON.parse(data));
-      } catch {
-        res.send(data);
-      }
-    } catch (error) {
-      console.error("Blynk Proxy Fetch Error:", error);
-      res.status(500).json({ error: "Failed to connect to Blynk Cloud" });
-    }
-  });
+        blynkToken = blynkToken.trim();
+        // In Express 5, the wildcard '*' is captured in req.params[0]
+        const blynkPath = (req.params as any)[0] || "";
+        
+        // Reconstruct query string from req.query to be safe
+        const queryParams = new URLSearchParams();
+        for (const [key, value] of Object.entries(req.query)) {
+            if (typeof value === 'string') {
+                queryParams.append(key, value);
+            } else if (Array.isArray(value)) {
+                value.forEach(v => queryParams.append(key, String(v)));
+            }
+        }
+        const queryString = queryParams.toString();
+
+        const servers = [
+            "blynk.cloud",
+            "sgp1.blynk.cloud",
+            "fra1.blynk.cloud",
+            "ny3.blynk.cloud",
+            "blr1.blynk.cloud"
+        ];
+
+        console.log(`Blynk Proxy: [${req.method}] ${blynkPath} | Token Len: ${blynkToken.length} | Query: ${queryString}`);
+
+        let lastResponseData = null;
+        let lastStatus = 404;
+
+        for (const server of servers) {
+            const blynkUrl = `https://${server}/external/api/${blynkPath}?token=${blynkToken}${queryString ? "&" + queryString : ""}`;
+            
+            try {
+                const response = await fetch(blynkUrl, {
+                    method: req.method,
+                    headers: req.method === "POST" ? { "Content-Type": "application/json" } : {},
+                    body: req.method === "POST" ? JSON.stringify(req.body) : undefined,
+                });
+
+                const data = await response.text();
+                lastStatus = response.status;
+                lastResponseData = data;
+
+                if (response.ok) {
+                    try {
+                        return res.json(JSON.parse(data));
+                    } catch {
+                        return res.send(data);
+                    }
+                }
+
+                // If it's a 400 or 403, it's likely a real error we should stop at
+                if (response.status !== 404) {
+                    console.warn(`Blynk Proxy: ${server} returned ${response.status}: ${data}`);
+                    return res.status(response.status).send(data);
+                }
+            } catch (error) {
+                console.error(`Blynk Proxy: Error connecting to ${server}:`, error);
+            }
+        }
+
+        res.status(lastStatus).json({
+            error: "Blynk Connection Failed",
+            details: "Resource not found on any Blynk regional server. Check your Token and Virtual Pins.",
+            blynkResponse: lastResponseData
+        });
+    });
 
   // API Health Check
   app.get("/api/health", (req, res) => {
@@ -98,7 +109,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*all", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
