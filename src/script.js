@@ -24,7 +24,7 @@ const auth = getAuth(app);
 
 // Blynk Configuration
 const blynkConfig = {
-    baseUrl: '/api/blynk', // Use backend proxy
+    baseUrl: '/api/blynk',
     pollInterval: 5000, 
 };
 
@@ -125,30 +125,6 @@ function showAuthOverlay() {
 function showDashboard() {
     authOverlay.classList.add('hidden');
     dashboard.classList.remove('hidden');
-    
-    // Show Blynk Template Info if provided
-    const templateId = process.env.VITE_BLYNK_TEMPLATE_ID;
-    const templateName = process.env.VITE_BLYNK_TEMPLATE_NAME;
-    const authToken = process.env.BLYNK_AUTH_TOKEN;
-
-    if (templateId && templateName) {
-        document.getElementById('template-info').classList.remove('hidden');
-        document.getElementById('template-id').textContent = templateId;
-        document.getElementById('template-name').textContent = templateName;
-    }
-
-    // Show a warning if keys are missing
-    if (!templateId || !templateName || !authToken || authToken === 'YOUR_BLYNK_AUTH_TOKEN') {
-        addLog("CRITICAL: Blynk API Keys are missing! Check your Secrets/Environment Variables.", "error");
-        const warningEl = document.createElement('div');
-        warningEl.className = 'bg-red-500 text-white p-4 rounded-xl mb-6 text-center animate-pulse';
-        warningEl.innerHTML = `
-            <p class='font-bold'>⚠️ Missing Blynk Configuration</p>
-            <p class='text-xs'>Please add <b>BLYNK_AUTH_TOKEN</b>, <b>VITE_BLYNK_TEMPLATE_ID</b>, and <b>VITE_BLYNK_TEMPLATE_NAME</b> to your environment variables.</p>
-        `;
-        dashboard.prepend(warningEl);
-    }
-
     renderHistory();
     startPolling();
     checkNotificationPermission();
@@ -164,7 +140,7 @@ async function fetchBlynkData() {
     const allPins = [...sensorPins, ...actuatorPins, ...schedulePins];
 
     try {
-        // Try batch fetch first via proxy (token is handled by backend)
+        // Try batch fetch first
         const url = `${blynkConfig.baseUrl}/get?${allPins.join('&')}`;
         const response = await fetch(url);
         
@@ -191,15 +167,7 @@ async function fetchBlynkData() {
             }
             updateStatus(true);
         } else {
-            const errorText = await response.text();
-            let errorMessage = `Server returned ${response.status}`;
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.details) {
-                    errorMessage = `${errorJson.error}: ${errorJson.details}`;
-                }
-            } catch (e) {}
-            throw new Error(errorMessage);
+            throw new Error(`Server returned ${response.status}`);
         }
     } catch (error) {
         console.error("Fetch error:", error);
@@ -217,16 +185,7 @@ async function updateBlynkPin(pin, value) {
         const response = await fetch(url);
         if (!response.ok) {
             const errorText = await response.text();
-            let errorMessage = errorText;
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.details) {
-                    errorMessage = `${errorJson.error}: ${errorJson.details}`;
-                }
-            } catch (e) {
-                // Not a JSON, use raw text
-            }
-            throw new Error(errorMessage || "Update failed");
+            throw new Error(errorText || "Update failed");
         }
         addLog(`Updated ${pin} to ${value}`);
         farmState[pin.toLowerCase()] = value;
@@ -302,7 +261,7 @@ async function saveSettings() {
             addLog(`${failCount} pins missing in Blynk template.`, "warn");
         }
     } else {
-        addLog("Failed to save settings. Check Auth Token.", "error");
+        addLog("Failed to save settings. Check backend configuration.", "error");
     }
 }
 

@@ -9,9 +9,9 @@
  * - Schedules: V20-V25
  */
 
-#define BLYNK_TEMPLATE_ID "TMPLxxxxxx"
-#define BLYNK_TEMPLATE_NAME "Smart Quail Farm"
-#define BLYNK_AUTH_TOKEN "YOUR_BLYNK_AUTH_TOKEN" // Replace with your actual token
+#define BLYNK_TEMPLATE_ID "TMPL6Aho3SnRm"
+#define BLYNK_TEMPLATE_NAME "smart quail"
+#define BLYNK_AUTH_TOKEN "at2L15c2T-cBRodKkRS0BW8DMWT_hmpL"
 
 #include <WiFi.h>
 #include <WiFiClient.h>
