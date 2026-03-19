@@ -28,6 +28,12 @@ const blynkConfig = {
     pollInterval: 5000, 
 };
 
+// Calibration Settings (Adjust these based on your actual sensor)
+const CALIBRATION = {
+    V3_EMPTY: 28, // Ang value na ito ay magiging 0%
+    V3_FULL: 89   // Ang value na ito ay magiging 100% (Covered)
+};
+
 // State Management
 let isAuthModeLogin = true;
 let currentUser = null;
@@ -378,9 +384,27 @@ function setNote(el, text, classes) {
 function updateSensorUI(id, val, max) {
     const el = document.getElementById(`val-${id}`);
     const bar = document.getElementById(`bar-${id}`);
-    if (el) el.innerText = val;
+    
+    let displayVal = val;
+    let pct = Math.min((val / max) * 100, 100);
+
+    // Calibration logic for Feed Level (V3)
+    if (id === 'v3') {
+        const empty = CALIBRATION.V3_EMPTY;
+        const full = CALIBRATION.V3_FULL;
+        
+        // Calculate percentage based on direct mapping
+        // (val - empty) / (full - empty) * 100
+        let calculatedPct = ((val - empty) / (full - empty)) * 100;
+        
+        pct = Math.max(0, Math.min(100, calculatedPct));
+        displayVal = Math.round(pct);
+
+        if (el) el.innerText = `${displayVal}%`;
+    } else {
+        if (el) el.innerText = displayVal;
+    }
     if (bar) {
-        const pct = Math.min((val / max) * 100, 100);
         bar.style.width = `${pct}%`;
     }
 }
