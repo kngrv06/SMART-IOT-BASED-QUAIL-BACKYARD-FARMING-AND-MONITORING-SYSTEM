@@ -16,8 +16,61 @@ const BLYNK_BASE_URL = 'https://blynk.cloud/external/api';
 
 const app = express();
 
+// --- Background Logging System ---
+let hourlyLogs: any[] = [];
+const MAX_LOGS = 24; // Keep last 24 hours
+
+async function logSensorData() {
+  if (!BLYNK_AUTH_TOKEN) return;
+
+  try {
+    // Fetch V0 (Temp), V1 (Hum), V2 (Ammonia)
+    const url = `${BLYNK_BASE_URL}/get?token=${BLYNK_AUTH_TOKEN}&V0&V1&V2`;
+    const response = await axios.get(url);
+    const data = response.data;
+
+    const now = new Date();
+    const timeStr = now.getHours().toString().padStart(2, '0') + ":00";
+    const dateStr = now.toISOString().split('T')[0];
+
+    const entry = {
+      time: timeStr,
+      date: dateStr,
+      temp: parseFloat(data.V0) || 0,
+      hum: parseFloat(data.V1) || 0,
+      amm: parseFloat(data.V2) || 0,
+      eggs: 0, // Eggs are usually manual, default to 0 for server logs
+      timestamp: now.getTime()
+    };
+
+    hourlyLogs.push(entry);
+    if (hourlyLogs.length > MAX_LOGS) {
+      hourlyLogs.shift();
+    }
+    console.log(`[Server Log] Data recorded at ${timeStr}`);
+  } catch (error: any) {
+    console.error("[Server Log] Failed to fetch data for logging:", error.message);
+  }
+}
+
+// Start background task: Check every minute, log on the hour
+setInterval(() => {
+  const now = new Date();
+  if (now.getMinutes() === 0) {
+    logSensorData();
+  }
+}, 60000);
+
+// Initial log on startup
+logSensorData();
+
 async function startServer() {
   const PORT = 3000;
+
+  // History API
+  app.get('/api/history', (req, res) => {
+    res.json(hourlyLogs);
+  });
 
   // Blynk Proxy API
   app.get('/api/blynk/:action', async (req, res) => {
