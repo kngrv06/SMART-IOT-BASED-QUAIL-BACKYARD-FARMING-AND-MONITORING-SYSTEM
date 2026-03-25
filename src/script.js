@@ -162,19 +162,25 @@ confirmProceed.addEventListener('click', () => {
 });
 
 resetHistoryBtn.addEventListener('click', () => {
-    showConfirm("Are you sure you want to reset the Daily Averages? This will clear all logged daily records.", () => {
-        // Clear local storage for daily history only
-        localStorage.removeItem('farm_history');
-        
-        // Reset local variable for daily history
-        // We'll keep some mock data or just empty it? 
-        // Usually reset means empty, but the initial state had mock data.
-        // Let's set it to empty so the user sees it's actually reset.
+    showConfirm("Are you sure you want to reset all history? This will clear both daily averages and hourly trends.", async () => {
+        // 1. Clear Daily History (Table)
+        localStorage.setItem('farm_history', JSON.stringify([]));
         farmHistory = [];
-        
-        // Update UI
         renderHistory();
-        addLog("Daily averages have been reset.");
+        
+        // 2. Clear Hourly Trends (Graphs)
+        localStorage.setItem('hourly_data', JSON.stringify([]));
+        hourlyData = [];
+        updateChart();
+        
+        // 3. Clear Server-side History
+        try {
+            await fetch('/api/history/reset', { method: 'POST' });
+            addLog("All history has been reset (Local & Server).");
+        } catch (e) {
+            console.error("Failed to reset server history:", e);
+            addLog("Local history reset, but failed to clear server logs.", "warn");
+        }
     });
 });
 

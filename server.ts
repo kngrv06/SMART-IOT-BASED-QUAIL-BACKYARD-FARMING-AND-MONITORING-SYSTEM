@@ -72,6 +72,11 @@ async function startServer() {
     res.json(hourlyLogs);
   });
 
+  app.post('/api/history/reset', (req, res) => {
+    hourlyLogs = [];
+    res.json({ status: 'ok', message: 'History cleared' });
+  });
+
   // Blynk Proxy API
   app.get('/api/blynk/:action', async (req, res) => {
     const { action } = req.params;
