@@ -72,17 +72,27 @@
                     <div id="current-date" class="text-sm text-stone-500">Wednesday, March 18, 2026</div>
                 </div>
                 <div class="h-10 w-px bg-stone-200 hidden md:block"></div>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 relative">
                     <div class="text-right hidden sm:block">
                         <p id="user-display-name" class="text-sm font-bold text-stone-800">User</p>
                         <div class="flex items-center gap-2">
                             <button id="logout-btn" class="text-[10px] text-red-500 uppercase font-bold hover:underline">Logout</button>
                         </div>
                     </div>
-                    <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                    <button id="profile-trigger" class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
+                    </button>
+                    <!-- Hidden Profile Menu -->
+                    <div id="profile-menu" class="hidden absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-stone-200 p-2 z-50">
+                        <button id="reset-feed-cooldown" class="w-full text-left px-4 py-2 text-[10px] font-bold text-amber-600 uppercase tracking-widest hover:bg-amber-50 rounded-lg transition-colors">
+                            Reset Feed Cooldown
+                        </button>
+                        <button id="demo-mode-btn" class="w-full text-left px-4 py-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-between">
+                            <span>Demo Mode</span>
+                            <span id="demo-status" class="text-[8px] px-1.5 py-0.5 bg-stone-100 text-stone-400 rounded">OFF</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -167,7 +177,7 @@
                 <h3 id="title-v2" class="text-stone-500 text-sm font-medium uppercase tracking-wider transition-colors">Ammonia</h3>
                 <div class="flex items-baseline gap-1 mt-2">
                     <span id="val-v2" class="text-4xl font-bold text-stone-800 transition-colors">--</span>
-                    <span id="unit-v2" class="text-xl text-stone-400 transition-colors">ppm</span>
+                    <span id="unit-v2" class="text-xl text-stone-400 transition-colors"></span>
                 </div>
                 <div id="bar-cont-v2" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden transition-colors">
                     <div id="bar-v2" class="h-full bg-purple-500 transition-all duration-500" style="width: 0%"></div>
@@ -175,13 +185,13 @@
                 <!-- Legend -->
                 <div class="mt-4 pt-4 border-t border-stone-50 grid grid-cols-3 gap-1 text-[7px] font-bold uppercase tracking-tighter">
                     <div id="leg-v2-crit" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-red-500">&gt;15</span>
+                        <span class="text-red-500">&gt;2000</span>
                     </div>
                     <div id="leg-v2-warn" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-amber-500">10-15</span>
+                        <span class="text-amber-500">1000-2000</span>
                     </div>
                     <div id="leg-v2-opt" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-emerald-500">&lt;10</span>
+                        <span class="text-emerald-500">&lt;1000</span>
                     </div>
                 </div>
             </div>
@@ -290,7 +300,7 @@
                     <div class="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
                         <div>
                             <p class="font-bold text-stone-700">Feed Control</p>
-                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Feeding Mechanism</p>
+                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Feeding Mechanism <span id="feed-cooldown-timer" class="text-amber-600 ml-2 hidden"></span></p>
                         </div>
                         <button id="btn-v4" class="toggle-btn w-14 h-8 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
                             <span class="dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300"></span>
@@ -362,22 +372,47 @@
 
         <!-- History & Terminal -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Hourly Graph -->
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-200">
-                <h3 class="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2">
+            <!-- Hourly Graphs -->
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-200 lg:col-span-2">
+                <h3 class="text-xl font-bold text-stone-800 mb-8 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                     </svg>
                     Hourly Sensor Trends
                 </h3>
-                <div class="h-64 w-full" id="hourly-chart-container">
-                    <canvas id="hourlyChart"></canvas>
-                </div>
-                <div class="mt-4 flex justify-center gap-4 text-[10px] font-bold uppercase tracking-widest">
-                    <span class="text-orange-500">● Temp</span>
-                    <span class="text-blue-500">● Hum</span>
-                    <span class="text-purple-500">● Amm</span>
-                    <span class="text-emerald-500">● Eggs</span>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Temperature Chart -->
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-bold text-orange-500 uppercase tracking-widest text-center">Temperature (°C)</p>
+                        <div class="h-48 w-full">
+                            <canvas id="tempChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Humidity Chart -->
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-bold text-blue-500 uppercase tracking-widest text-center">Humidity (%)</p>
+                        <div class="h-48 w-full">
+                            <canvas id="humChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Ammonia Chart -->
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-bold text-purple-500 uppercase tracking-widest text-center">Ammonia (Raw)</p>
+                        <div class="h-48 w-full">
+                            <canvas id="ammChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Eggs Chart -->
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest text-center">Daily Egg Production</p>
+                        <div class="h-48 w-full">
+                            <canvas id="eggsChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -39,7 +39,10 @@ let isAuthModeLogin = true;
 let currentUser = null;
 let pollTimer = null;
 let hourlyTimer = null;
-let hourlyChart = null;
+let tempChart = null;
+let humChart = null;
+let ammChart = null;
+let eggsChart = null;
 
 // Track manual overrides to prevent polling from flickering the UI
 let manualOverrides = {};
@@ -53,6 +56,10 @@ let farmState = {
     isOnline: false,
     isAutoMode: localStorage.getItem('auto_mode') === 'true'
 };
+
+// 24-hour cooldown for manual feeding
+let lastManualFeedTime = parseInt(localStorage.getItem('last_manual_feed_time')) || 0;
+const COOLDOWN_24H = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 // Hourly Data for Graph
 let hourlyData = JSON.parse(localStorage.getItem('hourly_data')) || [];
@@ -99,10 +106,13 @@ async function syncHistoryWithServer() {
 
 // Mock History Data
 let farmHistory = JSON.parse(localStorage.getItem('farm_history')) || [
-    { date: '2026-03-17', avgTemp: 24.5, avgHum: 65.2, avgAmmonia: 4.2, eggs: 42 },
-    { date: '2026-03-16', avgTemp: 23.8, avgHum: 68.1, avgAmmonia: 3.8, eggs: 38 },
-    { date: '2026-03-15', avgTemp: 25.1, avgHum: 62.4, avgAmmonia: 5.1, eggs: 45 }
+    { date: '2026-03-15', avgTemp: 25.1, avgHum: 62.4, avgAmmonia: 850, eggs: 45 },
+    { date: '2026-03-16', avgTemp: 23.8, avgHum: 68.1, avgAmmonia: 720, eggs: 38 },
+    { date: '2026-03-17', avgTemp: 24.5, avgHum: 65.2, avgAmmonia: 780, eggs: 42 }
 ];
+
+// Ensure history is sorted by date for the chart
+farmHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
 
 // UI Elements
 const authOverlay = document.getElementById('auth-overlay');
@@ -119,6 +129,11 @@ const terminalLog = document.getElementById('terminal-log');
 const currentTimeDisplay = document.getElementById('current-time');
 const currentDateDisplay = document.getElementById('current-date');
 const enableNotifsBtn = document.getElementById('enable-notifs');
+const feedCooldownTimer = document.getElementById('feed-cooldown-timer');
+const profileTrigger = document.getElementById('profile-trigger');
+const profileMenu = document.getElementById('profile-menu');
+const demoModeBtn = document.getElementById('demo-mode-btn');
+const demoStatus = document.getElementById('demo-status');
 const autoModeToggle = document.getElementById('auto-mode-toggle');
 const editEggBtn = document.getElementById('edit-egg-btn');
 const resetHistoryBtn = document.getElementById('reset-history-btn');
@@ -446,12 +461,12 @@ function runAutomationLogic(pin, val) {
         }
     }
 
-    // Stool Cleaner auto if ammonia ≥ 10 ppm
+    // Stool Cleaner auto if Ammonia Raw ≥ 1500
     if (pin === 'v2') {
-        if (val >= 10 && farmState.v13 === 0) {
-            addLog('Auto-trigger: High Ammonia (≥10ppm). Starting Stool Cleaner.');
+        if (val >= 1500 && farmState.v13 === 0) {
+            addLog('Auto-trigger: High Ammonia Raw (≥1500). Starting Stool Cleaner.');
             updateBlynkPin('V13', 1);
-            sendNotification('Ammonia Warning', `Ammonia level at ${val}ppm. Cleaning started.`);
+            sendNotification('Ammonia Warning', `Raw level at ${val}. Cleaning started.`);
             
             setTimeout(() => {
                 addLog('Stool Cleaner cycle complete (20s). Turning OFF.');
@@ -476,11 +491,11 @@ function renderSensors() {
     else if ((hum >= 35 && hum < 40) || (hum > 70 && hum <= 75)) humStatus = 'warning';
     updateCardStatus('v1', humStatus, humStatus === 'optimal' ? 'Optimal' : humStatus === 'warning' ? 'Warning' : 'Critical');
 
-    // Ammonia (V2)
+    // Ammonia Raw (V2)
     const amm = farmState.v2;
     let ammStatus = 'critical';
-    if (amm < 10) ammStatus = 'optimal';
-    else if (amm >= 10 && amm <= 15) ammStatus = 'warning';
+    if (amm < 900) ammStatus = 'optimal';
+    else if (amm >= 900 && amm <= 1500) ammStatus = 'warning';
     updateCardStatus('v2', ammStatus, ammStatus === 'optimal' ? 'Optimal' : ammStatus === 'warning' ? 'Warning' : 'Critical');
 
     // Feed Level (V3)
@@ -496,7 +511,7 @@ function renderSensors() {
 
     updateSensorUI('v0', farmState.v0, 50);
     updateSensorUI('v1', farmState.v1, 100);
-    updateSensorUI('v2', farmState.v2, 20);
+    updateSensorUI('v2', farmState.v2, 4095);
     updateSensorUI('v3', farmState.v3, 100);
 }
 
@@ -702,50 +717,98 @@ function addLog(message, type = 'info') {
 function renderHistory() {
     const tbody = document.getElementById('history-table');
     if (!tbody) return;
-    tbody.innerHTML = farmHistory.map(row => `
+    
+    // Show newest first in table
+    const sortedHistory = [...farmHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    tbody.innerHTML = sortedHistory.map(row => `
         <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors">
             <td class="py-3 font-medium">${row.date}</td>
             <td class="py-3">${row.avgTemp.toFixed(1)}°C</td>
             <td class="py-3">${(row.avgHum || 0).toFixed(1)}%</td>
-            <td class="py-3">${row.avgAmmonia.toFixed(1)}ppm</td>
+            <td class="py-3">${row.avgAmmonia.toFixed(0)}</td>
             <td class="py-3 font-bold text-emerald-600">${row.eggs}</td>
         </tr>
     `).join('');
 }
 
 function initChart() {
-    const ctx = document.getElementById('hourlyChart').getContext('2d');
-    hourlyChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: hourlyData.map(d => d.time),
-            datasets: [
-                { label: 'Temp', data: hourlyData.map(d => d.temp), borderColor: '#f97316', tension: 0.4, pointRadius: 2 },
-                { label: 'Hum', data: hourlyData.map(d => d.hum), borderColor: '#3b82f6', tension: 0.4, pointRadius: 2 },
-                { label: 'Amm', data: hourlyData.map(d => d.amm), borderColor: '#a855f7', tension: 0.4, pointRadius: 2 },
-                { label: 'Eggs', data: hourlyData.map(d => d.eggs), borderColor: '#10b981', tension: 0.4, pointRadius: 2 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, grid: { color: '#f5f5f4' } },
-                x: { grid: { display: false } }
-            }
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#f5f5f4' } },
+            x: { grid: { display: false } }
         }
-    });
+    };
+
+    const labels = hourlyData.map(d => d.time);
+
+    const tempCtx = document.getElementById('tempChart');
+    if (tempCtx) {
+        tempChart = new Chart(tempCtx.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Temp', data: hourlyData.map(d => d.temp), borderColor: '#f97316', tension: 0.4, pointRadius: 2 }] },
+            options: commonOptions
+        });
+    }
+
+    const humCtx = document.getElementById('humChart');
+    if (humCtx) {
+        humChart = new Chart(humCtx.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Hum', data: hourlyData.map(d => d.hum), borderColor: '#3b82f6', tension: 0.4, pointRadius: 2 }] },
+            options: commonOptions
+        });
+    }
+
+    const ammCtx = document.getElementById('ammChart');
+    if (ammCtx) {
+        ammChart = new Chart(ammCtx.getContext('2d'), {
+            type: 'line',
+            data: { labels, datasets: [{ label: 'Amm', data: hourlyData.map(d => d.amm), borderColor: '#a855f7', tension: 0.4, pointRadius: 2 }] },
+            options: commonOptions
+        });
+    }
+
+    const eggsCtx = document.getElementById('eggsChart');
+    if (eggsCtx) {
+        eggsChart = new Chart(eggsCtx.getContext('2d'), {
+            type: 'line', // Changed back to line as requested
+            data: { 
+                labels: farmHistory.map(h => h.date.split('-').slice(1).join('/')), // Show MM/DD
+                datasets: [{ 
+                    label: 'Eggs', 
+                    data: farmHistory.map(h => h.eggs), 
+                    borderColor: '#10b981', 
+                    tension: 0.4,
+                    pointRadius: 3,
+                    fill: false
+                }] 
+            },
+            options: commonOptions
+        });
+    }
 }
 
 function updateChart() {
-    if (!hourlyChart) return;
-    hourlyChart.data.labels = hourlyData.map(d => d.time);
-    hourlyChart.data.datasets[0].data = hourlyData.map(d => d.temp);
-    hourlyChart.data.datasets[1].data = hourlyData.map(d => d.hum);
-    hourlyChart.data.datasets[2].data = hourlyData.map(d => d.amm);
-    hourlyChart.data.datasets[3].data = hourlyData.map(d => d.eggs);
-    hourlyChart.update();
+    if (!tempChart || !humChart || !ammChart || !eggsChart) return;
+    const labels = hourlyData.map(d => d.time);
+
+    [tempChart, humChart, ammChart].forEach(chart => {
+        chart.data.labels = labels;
+    });
+
+    tempChart.data.datasets[0].data = hourlyData.map(d => d.temp);
+    humChart.data.datasets[0].data = hourlyData.map(d => d.hum);
+    ammChart.data.datasets[0].data = hourlyData.map(d => d.amm);
+
+    // Update Eggs Chart (Daily)
+    eggsChart.data.labels = farmHistory.map(h => h.date.split('-').slice(1).join('/'));
+    eggsChart.data.datasets[0].data = farmHistory.map(h => h.eggs);
+
+    [tempChart, humChart, ammChart, eggsChart].forEach(chart => chart.update());
 }
 
 function startHourlyLogging() {
@@ -931,6 +994,22 @@ editEggBtn.addEventListener('click', editEggLog);
 
         const isActive = farmState[pin] === 1;
         const targetVal = isActive ? 0 : 1;
+
+        // 24-hour cooldown for Feed Control (V4)
+        if (pin === 'v4' && targetVal === 1) {
+            const now = Date.now();
+            if (lastManualFeedTime !== 0 && (now - lastManualFeedTime < COOLDOWN_24H)) {
+                const remainingMs = COOLDOWN_24H - (now - lastManualFeedTime);
+                const hours = Math.floor(remainingMs / 3600000);
+                const mins = Math.floor((remainingMs % 3600000) / 60000);
+                
+                addLog(`Feeding Cooldown: Please wait ${hours}h ${mins}m before manual feeding again.`, "warn");
+                return;
+            }
+            lastManualFeedTime = now;
+            localStorage.setItem('last_manual_feed_time', lastManualFeedTime);
+        }
+
         updateBlynkPin(pin.toUpperCase(), targetVal);
         
         // For V4 (Feed), auto-off after 3 seconds in the UI for better feedback
@@ -946,6 +1025,69 @@ editEggBtn.addEventListener('click', editEggLog);
 });
 
 document.getElementById('save-settings').addEventListener('click', saveSettings);
+
+let isDemoMode = false;
+let demoInterval = null;
+
+function toggleDemoMode() {
+    isDemoMode = !isDemoMode;
+    
+    if (isDemoMode) {
+        demoStatus.textContent = 'ON';
+        demoStatus.classList.remove('bg-stone-100', 'text-stone-400');
+        demoStatus.classList.add('bg-emerald-500', 'text-white');
+        addLog("Demo Mode activated. Simulating sensor fluctuations.", "success");
+        
+        if (!farmState.isAutoMode) {
+            updateBlynkPin('V5', 1);
+        }
+
+        demoInterval = setInterval(() => {
+            const randomTemp = 24 + Math.random() * 6;
+            const randomHum = 45 + Math.random() * 10;
+            const randomAmm = 5 + Math.random() * 10;
+            
+            farmState.v0 = parseFloat(randomTemp.toFixed(1));
+            farmState.v1 = parseFloat(randomHum.toFixed(1));
+            farmState.v2 = parseFloat(randomAmm.toFixed(1));
+            
+            renderSensors();
+            runAutomationLogic('v0', farmState.v0);
+            runAutomationLogic('v2', farmState.v2);
+        }, 3000);
+    } else {
+        demoStatus.textContent = 'OFF';
+        demoStatus.classList.add('bg-stone-100', 'text-stone-400');
+        demoStatus.classList.remove('bg-emerald-500', 'text-white');
+        addLog("Demo Mode deactivated.", "warning");
+        clearInterval(demoInterval);
+    }
+}
+
+document.getElementById('reset-feed-cooldown').addEventListener('click', () => {
+    lastManualFeedTime = 0;
+    localStorage.removeItem('last_manual_feed_time');
+    feedCooldownTimer.classList.add('hidden');
+    profileMenu.classList.add('hidden');
+    addLog("Manual Feed Cooldown has been reset.", "success");
+});
+
+demoModeBtn.addEventListener('click', () => {
+    toggleDemoMode();
+});
+
+profileTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    profileMenu.classList.toggle('hidden');
+});
+
+document.addEventListener('click', () => {
+    profileMenu.classList.add('hidden');
+});
+
+profileMenu.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
 
 document.getElementById('add-egg-btn').addEventListener('click', logEggs);
 document.getElementById('clear-log').addEventListener('click', () => {
@@ -968,4 +1110,20 @@ setInterval(() => {
     currentDateDisplay.textContent = now.toLocaleDateString('en-US', { 
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
     });
+
+    // Update Feed Cooldown Timer
+    if (lastManualFeedTime !== 0) {
+        const nowMs = now.getTime();
+        if (nowMs - lastManualFeedTime < COOLDOWN_24H) {
+            const remainingMs = COOLDOWN_24H - (nowMs - lastManualFeedTime);
+            const hours = Math.floor(remainingMs / 3600000);
+            const mins = Math.floor((remainingMs % 3600000) / 60000);
+            const secs = Math.floor((remainingMs % 60000) / 1000);
+            
+            feedCooldownTimer.textContent = `(${hours}h ${mins}m ${secs}s left)`;
+            feedCooldownTimer.classList.remove('hidden');
+        } else {
+            feedCooldownTimer.classList.add('hidden');
+        }
+    }
 }, 1000);
