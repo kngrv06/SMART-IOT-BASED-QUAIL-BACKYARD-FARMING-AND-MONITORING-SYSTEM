@@ -6,6 +6,22 @@ import {
     onAuthStateChanged, 
     signOut 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    orderBy,
+    limit,
+    getDocs,
+    serverTimestamp,
+    deleteDoc,
+    doc,
+    onSnapshot,
+    where,
+    setDoc,
+    Timestamp
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Firebase Configuration
 const firebaseConfig = {
@@ -21,6 +37,40 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
+
+// --- Firestore Error Handling ---
+const OperationType = {
+  CREATE: 'create',
+  UPDATE: 'update',
+  DELETE: 'delete',
+  LIST: 'list',
+  GET: 'get',
+  WRITE: 'write',
+};
+
+function handleFirestoreError(error, operationType, path) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 // Blynk Configuration
 const blynkConfig = {
@@ -38,11 +88,11 @@ const CALIBRATION = {
 let isAuthModeLogin = true;
 let currentUser = null;
 let pollTimer = null;
+let firebaseLogTimer = null;
 let hourlyTimer = null;
 let tempChart = null;
 let humChart = null;
 let ammChart = null;
-let eggsChart = null;
 
 // Track manual overrides to prevent polling from flickering the UI
 let manualOverrides = {};
@@ -57,62 +107,120 @@ let farmState = {
     isAutoMode: localStorage.getItem('auto_mode') === 'true'
 };
 
-// 24-hour cooldown for manual feeding
-let lastManualFeedTime = parseInt(localStorage.getItem('last_manual_feed_time')) || 0;
-const COOLDOWN_24H = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+// Clear stale local data for production launch
+if (!localStorage.getItem('prod_launched_v1')) {
+    localStorage.removeItem('hourly_data');
+    localStorage.removeItem('last_firebase_log_time');
+    localStorage.removeItem('last_manual_feed_time');
+    localStorage.setItem('prod_launched_v1', 'true');
+}
 
 // Hourly Data for Graph
 let hourlyData = JSON.parse(localStorage.getItem('hourly_data')) || [];
+let sensorLogs = []; // For Firestore logs
+let selectedHistoryDate = null; // For tabbed history view
 
 async function syncHistoryWithServer() {
     try {
-        const response = await fetch('/api/history');
-        if (response.ok) {
-            const serverLogs = await response.json();
-            if (serverLogs.length > 0) {
-                // Merge server logs with local data (server logs are more reliable for sensors)
-                // We'll use a Map to handle unique timestamps
-                const merged = new Map();
-                
-                // First, put local data in the map
-                hourlyData.forEach(d => merged.set(d.time, d));
-                
-                // Then, overwrite with server data (which is more reliable for 24h trend)
-                serverLogs.forEach(d => {
-                    const existing = merged.get(d.time);
-                    if (existing) {
-                        // Keep local eggs if they exist
-                        d.eggs = existing.eggs || 0;
-                    }
-                    merged.set(d.time, d);
-                });
-
-                // Sort by timestamp
-                hourlyData = Array.from(merged.values()).sort((a, b) => a.timestamp - b.timestamp);
-                
-                // Keep only last 24 entries
-                if (hourlyData.length > 24) {
-                    hourlyData = hourlyData.slice(-24);
-                }
-                
-                localStorage.setItem('hourly_data', JSON.stringify(hourlyData));
-                updateChart();
-            }
+        // Fetch from Firestore instead of local server for defense
+        const q = query(collection(db, "sensor_logs"), orderBy("timestamp", "desc"), limit(200));
+        const querySnapshot = await getDocs(q);
+        const logs = [];
+        querySnapshot.forEach((doc) => {
+            logs.push(doc.data());
+        });
+        
+        if (logs.length > 0) {
+            sensorLogs = logs;
+            renderHistory();
+            
+            // Update hourly trends for graphs
+            const trends = [...logs].reverse().slice(-24);
+            hourlyData = trends.map(l => ({
+                time: l.timeStr,
+                temp: l.temperature || 0,
+                hum: l.humidity || 0,
+                amm: l.ammonia || 0,
+                timestamp: l.timestamp?.seconds * 1000 || Date.now()
+            }));
+            updateChart();
         }
-    } catch (error) {
-        console.error("Failed to sync history:", error);
+    } catch (e) {
+        console.error("Sync error:", e);
+    }
+}
+
+let lastLogTime = parseInt(localStorage.getItem('last_firebase_log_time')) || 0;
+const LOG_COOLDOWN = 55 * 60 * 1000; // 55 minutes cooldown
+
+async function logToFirebase(isManual = false) {
+    if (!currentUser) return;
+    
+    const now = new Date();
+    const currentTime = now.getTime();
+    
+    // Prevent duplicate logs if not manual and within cooldown
+    if (!isManual && (currentTime - lastLogTime < LOG_COOLDOWN)) {
+        console.log("Skipping hourly log: cooldown active.");
+        return;
+    }
+    
+    lastLogTime = currentTime;
+    localStorage.setItem('last_firebase_log_time', lastLogTime);
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const logEntry = {
+        temperature: farmState.v0,
+        humidity: farmState.v1,
+        ammonia: farmState.v2,
+        feedLevel: Math.max(0, Math.min(100, ((farmState.v3 - CALIBRATION.V3_EMPTY) / (CALIBRATION.V3_FULL - CALIBRATION.V3_EMPTY)) * 100)),
+        timestamp: serverTimestamp(),
+        dateStr,
+        timeStr,
+        userId: currentUser.uid
+    };
+
+    try {
+        console.log("Attempting to log to Firebase. Current farmState:", farmState);
+        
+        if (farmState.v0 === 0 && farmState.v1 === 0 && farmState.v2 === 0) {
+            console.warn("Sensor values are all 0. Skipping log to avoid polluting database with initial/empty data.");
+            return;
+        }
+
+        console.log("Logging to Firebase:", logEntry);
+        
+        // Log to history collection
+        try {
+            await addDoc(collection(db, "sensor_logs"), logEntry);
+        } catch (e) {
+            handleFirestoreError(e, OperationType.CREATE, "sensor_logs");
+        }
+        
+        // Also update the specific "Latest" document requested by the user
+        const latestDocRef = doc(db, "sensor_logs", "XYiDZz0uH1xk0IL7KjK3");
+        try {
+            await setDoc(latestDocRef, {
+                temperature: logEntry.temperature,
+                humidity: logEntry.humidity,
+                ammonia: logEntry.ammonia,
+                feedLevel: logEntry.feedLevel,
+                lastUpdate: serverTimestamp()
+            }, { merge: true });
+        } catch (e) {
+            handleFirestoreError(e, OperationType.WRITE, "sensor_logs/XYiDZz0uH1xk0IL7KjK3");
+        }
+
+        addLog("Data logged to Firebase Firestore (History & Latest).");
+        syncHistoryWithServer();
+    } catch (e) {
+        console.error("Firebase log error:", e);
     }
 }
 
 // Mock History Data
-let farmHistory = JSON.parse(localStorage.getItem('farm_history')) || [
-    { date: '2026-03-15', avgTemp: 25.1, avgHum: 62.4, avgAmmonia: 850, eggs: 45 },
-    { date: '2026-03-16', avgTemp: 23.8, avgHum: 68.1, avgAmmonia: 720, eggs: 38 },
-    { date: '2026-03-17', avgTemp: 24.5, avgHum: 65.2, avgAmmonia: 780, eggs: 42 }
-];
-
-// Ensure history is sorted by date for the chart
-farmHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+let farmHistory = [];
 
 // UI Elements
 const authOverlay = document.getElementById('auth-overlay');
@@ -124,64 +232,211 @@ const authSubmitBtn = document.getElementById('auth-submit-btn');
 const toggleAuthModeBtn = document.getElementById('toggle-auth-mode');
 const authSubtitle = document.getElementById('auth-subtitle');
 const logoutBtn = document.getElementById('logout-btn');
+const logoutBtnMenu = document.getElementById('logout-btn-menu');
 const userDisplayName = document.getElementById('user-display-name');
 const terminalLog = document.getElementById('terminal-log');
 const currentTimeDisplay = document.getElementById('current-time');
 const currentDateDisplay = document.getElementById('current-date');
 const enableNotifsBtn = document.getElementById('enable-notifs');
-const feedCooldownTimer = document.getElementById('feed-cooldown-timer');
 const profileTrigger = document.getElementById('profile-trigger');
 const profileMenu = document.getElementById('profile-menu');
-const demoModeBtn = document.getElementById('demo-mode-btn');
-const demoStatus = document.getElementById('demo-status');
 const autoModeToggle = document.getElementById('auto-mode-toggle');
-const editEggBtn = document.getElementById('edit-egg-btn');
-const resetHistoryBtn = document.getElementById('reset-history-btn');
-const confirmModal = document.getElementById('confirm-modal');
-const confirmCancel = document.getElementById('confirm-cancel');
-const confirmProceed = document.getElementById('confirm-proceed');
-const confirmMessage = document.getElementById('confirm-message');
+const generateReportBtn = document.getElementById('generate-report-btn');
 
-let confirmCallback = null;
+// --- Authentication Logic ---
 
-function showConfirm(message, onConfirm) {
-    confirmMessage.textContent = message;
-    confirmModal.classList.remove('hidden');
-    confirmCallback = onConfirm;
+
+
+// Helper functions for data aggregation
+function formatAverageTable(title, data) {
+    if (!data || data.length === 0) return '';
+    
+    let rows = data.map(item => `
+        <tr class="border-b border-stone-100">
+            <td class="p-3 font-bold text-stone-900">${item.label}</td>
+            <td class="p-3">${item.temp}°C</td>
+            <td class="p-3">${item.hum}%</td>
+            <td class="p-3">${item.amm}</td>
+        </tr>
+    `).join('');
+
+    return `
+        <div class="mb-12">
+            <h3 class="text-sm font-black text-stone-400 uppercase tracking-[0.3em] mb-4 border-b border-stone-100 pb-2">${title}</h3>
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-stone-50 text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+                        <th class="p-3">Period</th>
+                        <th class="p-3">Avg Temp</th>
+                        <th class="p-3">Avg Hum</th>
+                        <th class="p-3">Avg Ammonia</th>
+                    </tr>
+                </thead>
+                <tbody class="text-xs text-stone-600">
+                    ${rows}
+                </tbody>
+            </table>
+        </div>
+    `;
 }
 
-function hideConfirm() {
-    confirmModal.classList.add('hidden');
-    confirmCallback = null;
-}
+function aggregateDailyAverages(logs) {
+    const daily = {};
 
-confirmCancel.addEventListener('click', hideConfirm);
-confirmProceed.addEventListener('click', () => {
-    if (confirmCallback) confirmCallback();
-    hideConfirm();
-});
+    logs.forEach(log => {
+        const date = log.timestamp?.toDate ? log.timestamp.toDate() : new Date(log.timestamp);
+        if (isNaN(date.getTime())) return;
 
-resetHistoryBtn.addEventListener('click', () => {
-    showConfirm("Are you sure you want to reset all history? This will clear both daily averages and hourly trends.", async () => {
-        // 1. Clear Daily History (Table)
-        localStorage.setItem('farm_history', JSON.stringify([]));
-        farmHistory = [];
-        renderHistory();
-        
-        // 2. Clear Hourly Trends (Graphs)
-        localStorage.setItem('hourly_data', JSON.stringify([]));
-        hourlyData = [];
-        updateChart();
-        
-        // 3. Clear Server-side History
-        try {
-            await fetch('/api/history/reset', { method: 'POST' });
-            addLog("All history has been reset (Local & Server).");
-        } catch (e) {
-            console.error("Failed to reset server history:", e);
-            addLog("Local history reset, but failed to clear server logs.", "warn");
-        }
+        const dKey = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+
+        if (!daily[dKey]) daily[dKey] = { t: 0, h: 0, a: 0, c: 0 };
+        daily[dKey].t += log.temperature || 0;
+        daily[dKey].h += log.humidity || 0;
+        daily[dKey].a += log.ammonia || 0;
+        daily[dKey].c++;
     });
+
+    return Object.keys(daily).map(k => ({
+        label: k,
+        temp: (daily[k].t / daily[k].c).toFixed(1),
+        hum: (daily[k].h / daily[k].c).toFixed(1),
+        amm: (daily[k].a / daily[k].c).toFixed(1)
+    })).sort((a, b) => b.label.localeCompare(a.label)).slice(0, 10);
+}
+
+generateReportBtn.addEventListener('click', async () => {
+    addLog("Generating comprehensive report...");
+    
+    // Fetch more logs for better averages
+    let reportLogs = [];
+    try {
+        const q = query(collection(db, "sensor_logs"), orderBy("timestamp", "desc"), limit(1000));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            reportLogs.push(doc.data());
+        });
+    } catch (e) {
+        console.error("Error fetching logs for report:", e);
+        reportLogs = sensorLogs; // Fallback to current logs
+    }
+
+    const dailyAverages = aggregateDailyAverages(reportLogs);
+    
+    // Group logs by day for the report
+    const dailyGroups = {};
+    reportLogs.forEach(log => {
+        if (!dailyGroups[log.dateStr]) dailyGroups[log.dateStr] = [];
+        dailyGroups[log.dateStr].push(log);
+    });
+
+    const sortedDates = Object.keys(dailyGroups).sort((a, b) => new Date(b) - new Date(a));
+
+    let dailySectionsHtml = sortedDates.map(date => {
+        const logs = dailyGroups[date];
+        const sum = logs.reduce((acc, curr) => ({
+            t: acc.t + (curr.temperature || 0),
+            h: acc.h + (curr.humidity || 0),
+            a: acc.a + (curr.ammonia || 0)
+        }), { t: 0, h: 0, a: 0 });
+        const count = logs.length;
+        
+        const rows = logs.map(row => `
+            <tr class="border-b border-stone-100">
+                <td class="p-2">${row.timeStr}</td>
+                <td class="p-2">${(row.temperature || 0).toFixed(1)}°C</td>
+                <td class="p-2">${(row.humidity || 0).toFixed(1)}%</td>
+                <td class="p-2">${(row.ammonia || 0).toFixed(0)}</td>
+            </tr>
+        `).join('');
+
+        return `
+            <div class="mb-12 page-break-before">
+                <div class="flex items-center justify-between mb-4 border-b-2 border-stone-900 pb-2">
+                    <h3 class="text-xl font-black text-stone-900 uppercase tracking-widest">Daily Log: ${date}</h3>
+                    <div class="flex gap-4 text-[10px] font-bold text-emerald-700 uppercase">
+                        <span>Avg Temp: ${(sum.t / count).toFixed(1)}°C</span>
+                        <span>Avg Hum: ${(sum.h / count).toFixed(1)}%</span>
+                        <span>Avg Amm: ${(sum.a / count).toFixed(0)}</span>
+                    </div>
+                </div>
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-stone-50 text-[10px] uppercase tracking-widest text-stone-500 font-bold">
+                            <th class="p-2">Time</th>
+                            <th class="p-2">Temp</th>
+                            <th class="p-2">Hum</th>
+                            <th class="p-2">Ammonia</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-xs text-stone-600">
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>Smart Quail Farm - Comprehensive Report</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <style>
+                    @media print {
+                        .no-print { display: none; }
+                        body { padding: 0; }
+                        .page-break-before { page-break-before: always; }
+                    }
+                    table { page-break-inside: auto; }
+                    tr { page-break-inside: avoid; page-break-after: auto; }
+                    thead { display: table-header-group; }
+                </style>
+            </head>
+            <body class="p-10 font-sans bg-white">
+                <div class="max-w-4xl mx-auto">
+                    <div class="flex justify-between items-center mb-8 border-b-2 border-stone-800 pb-6">
+                        <div>
+                            <h1 class="text-4xl font-black text-stone-900 tracking-tighter uppercase">Smart Quail Farm</h1>
+                            <p class="text-stone-500 font-bold tracking-[0.2em] text-xs mt-1">Automated Environmental Monitoring System</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-stone-900 font-black text-xl">${new Date().toLocaleDateString()}</p>
+                            <p class="text-stone-500 text-xs font-bold uppercase tracking-widest">${new Date().toLocaleTimeString()}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-12">
+                        <h2 class="text-xl font-black text-stone-900 mb-8 uppercase tracking-widest border-l-8 border-stone-900 pl-4">Daily Averages Summary</h2>
+                        ${formatAverageTable('Last 10 Days', dailyAverages)}
+                    </div>
+                    
+                    <h2 class="text-xl font-black text-stone-900 mb-8 uppercase tracking-widest border-l-8 border-stone-900 pl-4">Daily Sensor Logs</h2>
+                    ${dailySectionsHtml}
+
+                    <div class="grid grid-cols-2 gap-8 mt-12 pt-8 border-t border-stone-100">
+                        <div>
+                            <p class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2">Prepared By</p>
+                            <div class="h-12 border-b border-stone-300 w-48"></div>
+                            <p class="text-xs font-bold text-stone-800 mt-2">Farm Administrator</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-2">Verified By</p>
+                            <div class="h-12 border-b border-stone-300 w-48 ml-auto"></div>
+                            <p class="text-xs font-bold text-stone-800 mt-2">Technical Supervisor</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-16 text-center no-print">
+                        <button onclick="window.print()" class="bg-stone-900 text-white px-10 py-4 rounded-full font-black uppercase tracking-widest text-xs hover:bg-stone-800 transition-all shadow-xl hover:shadow-2xl active:scale-95">
+                            Print Official Report
+                        </button>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `);
+    printWindow.document.close();
 });
 
 // --- Authentication Logic ---
@@ -401,6 +656,7 @@ async function saveSettings() {
 
 function updateState(data) {
     const now = Date.now();
+    console.log("Updating state with data:", data);
     Object.keys(data).forEach(pin => {
         const val = parseFloat(data[pin]);
         const pinKey = pin.toLowerCase();
@@ -488,21 +744,21 @@ function renderSensors() {
     let tempStatus = 'critical';
     if (temp >= 21 && temp <= 24) tempStatus = 'optimal';
     else if ((temp >= 18 && temp < 21) || (temp > 24 && temp <= 27)) tempStatus = 'warning';
-    updateCardStatus('v0', tempStatus, tempStatus === 'optimal' ? 'Optimal' : tempStatus === 'warning' ? 'Warning' : 'Critical');
+    updateCardStatus('v0', tempStatus, tempStatus === 'optimal' ? '✅ Optimal' : tempStatus === 'warning' ? '⚠️ Warning' : '🚨 Critical');
 
     // Humidity (V1)
     const hum = farmState.v1;
     let humStatus = 'critical';
     if (hum >= 40 && hum <= 70) humStatus = 'optimal';
     else if ((hum >= 35 && hum < 40) || (hum > 70 && hum <= 75)) humStatus = 'warning';
-    updateCardStatus('v1', humStatus, humStatus === 'optimal' ? 'Optimal' : humStatus === 'warning' ? 'Warning' : 'Critical');
+    updateCardStatus('v1', humStatus, humStatus === 'optimal' ? '✅ Optimal' : humStatus === 'warning' ? '⚠️ Warning' : '🚨 Critical');
 
     // Ammonia Raw (V2)
     const amm = farmState.v2;
     let ammStatus = 'critical';
     if (amm < 900) ammStatus = 'optimal';
     else if (amm >= 900 && amm <= 1500) ammStatus = 'warning';
-    updateCardStatus('v2', ammStatus, ammStatus === 'optimal' ? 'Optimal' : ammStatus === 'warning' ? 'Warning' : 'Critical');
+    updateCardStatus('v2', ammStatus, ammStatus === 'optimal' ? '✅ Optimal' : ammStatus === 'warning' ? '⚠️ Warning' : '🚨 Critical');
 
     // Feed Level (V3)
     const feed = farmState.v3;
@@ -513,7 +769,7 @@ function renderSensors() {
     let feedStatus = 'critical';
     if (feedPct > 20) feedStatus = 'optimal';
     else if (feedPct >= 10 && feedPct <= 20) feedStatus = 'warning';
-    updateCardStatus('v3', feedStatus, feedStatus === 'optimal' ? 'Optimal' : feedStatus === 'warning' ? 'Warning' : 'Critical');
+    updateCardStatus('v3', feedStatus, feedStatus === 'optimal' ? '✅ Optimal' : feedStatus === 'warning' ? '⚠️ Warning' : '🚨 Critical');
 
     updateSensorUI('v0', farmState.v0, 50);
     updateSensorUI('v1', farmState.v1, 100);
@@ -524,86 +780,34 @@ function renderSensors() {
 function updateCardStatus(pin, status, text) {
     const card = document.getElementById(`card-${pin}`);
     const note = document.getElementById(`note-${pin}`);
-    const title = document.getElementById(`title-${pin}`);
     const val = document.getElementById(`val-${pin}`);
-    const unit = document.getElementById(`unit-${pin}`);
-    const icon = document.getElementById(`icon-${pin}`);
-    const barCont = document.getElementById(`bar-cont-${pin}`);
-    const legCrit = document.getElementById(`leg-${pin}-crit`);
-    const legWarn = document.getElementById(`leg-${pin}-warn`);
-    const legOpt = document.getElementById(`leg-${pin}-opt`);
 
-    if (!card || !note) return;
+    if (!card || !val) return;
 
-    // Reset styles
-    card.classList.remove('bg-emerald-500', 'bg-amber-500', 'bg-red-500', 'border-emerald-600', 'border-amber-600', 'border-red-600', 'text-white');
-    card.classList.add('bg-white', 'border-stone-200');
-    
-    if (title) title.classList.replace('text-white/80', 'text-stone-500');
-    if (val) val.classList.replace('text-white', 'text-stone-800');
-    if (unit) unit.classList.replace('text-white/60', 'text-stone-400');
-    if (barCont) barCont.classList.replace('bg-white/20', 'bg-stone-100');
-    
-    if (icon) {
-        icon.classList.remove('bg-white/20', 'text-white');
-        const defaultIconClasses = {
-            'v0': ['bg-orange-50', 'text-orange-600'],
-            'v1': ['bg-blue-50', 'text-blue-600'],
-            'v2': ['bg-purple-50', 'text-purple-600'],
-            'v3': ['bg-emerald-50', 'text-emerald-600']
-        };
-        const defaults = defaultIconClasses[pin] || ['bg-stone-50', 'text-stone-600'];
-        icon.classList.add(...defaults);
+    // Reset styles to neutral
+    if (note) {
+        note.className = "text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400";
+        note.textContent = text;
     }
-
-    [legCrit, legWarn, legOpt].forEach(el => {
-        if (!el) return;
-        el.classList.remove('bg-red-600', 'bg-amber-600', 'bg-emerald-600', 'bg-white/20', 'text-white', 'shadow-sm');
-        const span = el.querySelector('span');
-        if (span) span.classList.remove('text-white');
-    });
-
-    const applyStatusStyles = (bgColor, borderColor) => {
-        card.classList.replace('bg-white', bgColor);
-        card.classList.replace('border-stone-200', borderColor);
-        card.classList.add('text-white');
-        if (title) title.classList.replace('text-stone-500', 'text-white/80');
-        if (val) val.classList.replace('text-stone-800', 'text-white');
-        if (unit) unit.classList.replace('text-stone-400', 'text-white/60');
-        if (barCont) barCont.classList.replace('bg-stone-100', 'bg-white/20');
-        if (icon) {
-            const defaultIconClasses = {
-                'v0': ['bg-orange-50', 'text-orange-600'],
-                'v1': ['bg-blue-50', 'text-blue-600'],
-                'v2': ['bg-purple-50', 'text-purple-600'],
-                'v3': ['bg-emerald-50', 'text-emerald-600']
-            };
-            icon.classList.remove(...(defaultIconClasses[pin] || []));
-            icon.classList.add('bg-white/20', 'text-white');
-        }
-        setNote(note, text, 'bg-white/20 text-white');
-    };
+    val.className = "text-5xl font-bold text-stone-800 transition-colors";
 
     if (status === 'optimal') {
-        applyStatusStyles('bg-emerald-500', 'border-emerald-600');
-        if (legOpt) {
-            legOpt.classList.add('bg-white/20', 'text-white', 'shadow-sm');
-            const span = legOpt.querySelector('span');
-            if (span) span.classList.add('text-white');
+        val.classList.replace('text-stone-800', 'text-emerald-500');
+        if (note) {
+            note.classList.replace('bg-stone-100', 'bg-emerald-50');
+            note.classList.replace('text-stone-400', 'text-emerald-600');
         }
     } else if (status === 'warning') {
-        applyStatusStyles('bg-amber-500', 'border-amber-600');
-        if (legWarn) {
-            legWarn.classList.add('bg-white/20', 'text-white', 'shadow-sm');
-            const span = legWarn.querySelector('span');
-            if (span) span.classList.add('text-white');
+        val.classList.replace('text-stone-800', 'text-amber-500');
+        if (note) {
+            note.classList.replace('bg-stone-100', 'bg-amber-50');
+            note.classList.replace('text-stone-400', 'text-amber-600');
         }
-    } else {
-        applyStatusStyles('bg-red-500', 'border-red-600');
-        if (legCrit) {
-            legCrit.classList.add('bg-white/20', 'text-white', 'shadow-sm');
-            const span = legCrit.querySelector('span');
-            if (span) span.classList.add('text-white');
+    } else if (status === 'critical') {
+        val.classList.replace('text-stone-800', 'text-red-500');
+        if (note) {
+            note.classList.replace('bg-stone-100', 'bg-red-50');
+            note.classList.replace('text-stone-400', 'text-red-600');
         }
     }
 }
@@ -722,21 +926,81 @@ function addLog(message, type = 'info') {
 
 function renderHistory() {
     const tbody = document.getElementById('history-table');
-    if (!tbody) return;
+    const tabsContainer = document.getElementById('history-tabs');
+    const avgBanner = document.getElementById('daily-average-banner');
+    const avgTempVal = document.getElementById('avg-temp-val');
+    const avgHumVal = document.getElementById('avg-hum-val');
+    const avgAmmVal = document.getElementById('avg-amm-val');
     
-    // Show newest first in table
-    const sortedHistory = [...farmHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (!tbody || !tabsContainer) return;
+
+    // Group logs by date
+    const groupedLogs = {};
+    sensorLogs.forEach(log => {
+        if (!groupedLogs[log.dateStr]) {
+            groupedLogs[log.dateStr] = [];
+        }
+        groupedLogs[log.dateStr].push(log);
+    });
+
+    const dates = Object.keys(groupedLogs).sort((a, b) => new Date(b) - new Date(a));
     
-    tbody.innerHTML = sortedHistory.map(row => `
+    if (dates.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-stone-400 italic">No sensor data available.</td></tr>';
+        tabsContainer.innerHTML = '';
+        avgBanner.classList.add('hidden');
+        return;
+    }
+
+    // Set default selected date if none or if current selected date no longer exists
+    if (!selectedHistoryDate || !groupedLogs[selectedHistoryDate]) {
+        selectedHistoryDate = dates[0];
+    }
+
+    // Render Tabs
+    tabsContainer.innerHTML = dates.map(date => `
+        <button onclick="window.setHistoryDate('${date}')" 
+            class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${selectedHistoryDate === date ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}">
+            ${date}
+        </button>
+    `).join('');
+
+    // Filter logs for selected date
+    const logsForDate = groupedLogs[selectedHistoryDate] || [];
+    
+    // Calculate Averages for the selected date
+    if (logsForDate.length > 0) {
+        const sum = logsForDate.reduce((acc, curr) => ({
+            t: acc.t + (curr.temperature || 0),
+            h: acc.h + (curr.humidity || 0),
+            a: acc.a + (curr.ammonia || 0)
+        }), { t: 0, h: 0, a: 0 });
+        
+        const count = logsForDate.length;
+        avgTempVal.textContent = `${(sum.t / count).toFixed(1)}°C`;
+        avgHumVal.textContent = `${(sum.h / count).toFixed(1)}%`;
+        avgAmmVal.textContent = (sum.a / count).toFixed(0);
+        avgBanner.classList.remove('hidden');
+    } else {
+        avgBanner.classList.add('hidden');
+    }
+
+    // Render Table (No Feed Column)
+    tbody.innerHTML = logsForDate.map(row => `
         <tr class="border-b border-stone-50 hover:bg-stone-50 transition-colors">
-            <td class="py-3 font-medium">${row.date}</td>
-            <td class="py-3">${row.avgTemp.toFixed(1)}°C</td>
-            <td class="py-3">${(row.avgHum || 0).toFixed(1)}%</td>
-            <td class="py-3">${row.avgAmmonia.toFixed(0)}</td>
-            <td class="py-3 font-bold text-emerald-600">${row.eggs}</td>
+            <td class="py-3 font-medium">${row.timeStr}</td>
+            <td class="py-3">${(row.temperature || 0).toFixed(1)}°C</td>
+            <td class="py-3">${(row.humidity || 0).toFixed(1)}%</td>
+            <td class="py-3">${(row.ammonia || 0).toFixed(0)}</td>
         </tr>
     `).join('');
 }
+
+// Expose to window for onclick
+window.setHistoryDate = (date) => {
+    selectedHistoryDate = date;
+    renderHistory();
+};
 
 function initChart() {
     const commonOptions = {
@@ -953,9 +1217,25 @@ function updateAutoModeUI() {
     }
 }
 
-function sendNotification(title, body) {
+function showBrowserNotification(title, body) {
     if ("Notification" in window && Notification.permission === "granted") {
         new Notification(title, { body });
+    }
+}
+
+async function sendNotification(title, body) {
+    if (currentUser) {
+        try {
+            await addDoc(collection(db, "notifications"), {
+                title,
+                body,
+                timestamp: serverTimestamp(),
+                userId: currentUser.uid,
+                read: false
+            });
+        } catch (e) {
+            console.error("Error saving notification to Firestore:", e);
+        }
     }
 }
 
@@ -973,14 +1253,37 @@ function getActuatorName(pin) {
     return names[pin] || pin.toUpperCase();
 }
 
-function startPolling() {
+async function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
-    fetchBlynkData();
+    if (firebaseLogTimer) clearInterval(firebaseLogTimer);
+    
+    // Initial fetch and wait for it to complete before logging
+    await fetchBlynkData();
+    
     pollTimer = setInterval(fetchBlynkData, blynkConfig.pollInterval);
+    
+    // Initial sync with Firestore
+    syncHistoryWithServer();
+
+    // Log to Firebase immediately on startup (now that we have data)
+    // This will be caught by the cooldown if it's too soon
+    logToFirebase();
+
+    // Align hourly logging to the top of the hour
+    const now = new Date();
+    const msToNextHour = (60 - now.getMinutes()) * 60 * 1000 - now.getSeconds() * 1000 - now.getMilliseconds();
+    
+    setTimeout(() => {
+        logToFirebase(); // Log at the top of the hour
+        firebaseLogTimer = setInterval(() => {
+            logToFirebase();
+        }, 60 * 60 * 1000);
+    }, msToNextHour);
 }
 
 function stopPolling() {
     if (pollTimer) clearInterval(pollTimer);
+    if (firebaseLogTimer) clearInterval(firebaseLogTimer);
 }
 
 // --- Event Listeners ---
@@ -988,8 +1291,8 @@ function stopPolling() {
 authForm.addEventListener('submit', handleAuthSubmit);
 toggleAuthModeBtn.addEventListener('click', toggleAuthMode);
 logoutBtn.addEventListener('click', handleLogout);
+if (logoutBtnMenu) logoutBtnMenu.addEventListener('click', handleLogout);
 autoModeToggle.addEventListener('click', toggleAutoMode);
-editEggBtn.addEventListener('click', editEggLog);
 
 ['v10', 'v11', 'v12', 'v13', 'v4'].forEach(pin => {
     document.getElementById(`btn-${pin}`).addEventListener('click', function() {
@@ -1000,21 +1303,6 @@ editEggBtn.addEventListener('click', editEggLog);
 
         const isActive = farmState[pin] === 1;
         const targetVal = isActive ? 0 : 1;
-
-        // 24-hour cooldown for Feed Control (V4)
-        if (pin === 'v4' && targetVal === 1) {
-            const now = Date.now();
-            if (lastManualFeedTime !== 0 && (now - lastManualFeedTime < COOLDOWN_24H)) {
-                const remainingMs = COOLDOWN_24H - (now - lastManualFeedTime);
-                const hours = Math.floor(remainingMs / 3600000);
-                const mins = Math.floor((remainingMs % 3600000) / 60000);
-                
-                addLog(`Feeding Cooldown: Please wait ${hours}h ${mins}m before manual feeding again.`, "warn");
-                return;
-            }
-            lastManualFeedTime = now;
-            localStorage.setItem('last_manual_feed_time', lastManualFeedTime);
-        }
 
         updateBlynkPin(pin.toUpperCase(), targetVal);
         
@@ -1032,56 +1320,6 @@ editEggBtn.addEventListener('click', editEggLog);
 
 document.getElementById('save-settings').addEventListener('click', saveSettings);
 
-let isDemoMode = false;
-let demoInterval = null;
-
-function toggleDemoMode() {
-    isDemoMode = !isDemoMode;
-    
-    if (isDemoMode) {
-        demoStatus.textContent = 'ON';
-        demoStatus.classList.remove('bg-stone-100', 'text-stone-400');
-        demoStatus.classList.add('bg-emerald-500', 'text-white');
-        addLog("Demo Mode activated. Simulating sensor fluctuations.", "success");
-        
-        if (!farmState.isAutoMode) {
-            updateBlynkPin('V5', 1);
-        }
-
-        demoInterval = setInterval(() => {
-            const randomTemp = 24 + Math.random() * 6;
-            const randomHum = 45 + Math.random() * 10;
-            const randomAmm = 5 + Math.random() * 10;
-            
-            farmState.v0 = parseFloat(randomTemp.toFixed(1));
-            farmState.v1 = parseFloat(randomHum.toFixed(1));
-            farmState.v2 = parseFloat(randomAmm.toFixed(1));
-            
-            renderSensors();
-            runAutomationLogic('v0', farmState.v0);
-            runAutomationLogic('v2', farmState.v2);
-        }, 3000);
-    } else {
-        demoStatus.textContent = 'OFF';
-        demoStatus.classList.add('bg-stone-100', 'text-stone-400');
-        demoStatus.classList.remove('bg-emerald-500', 'text-white');
-        addLog("Demo Mode deactivated.", "warning");
-        clearInterval(demoInterval);
-    }
-}
-
-document.getElementById('reset-feed-cooldown').addEventListener('click', () => {
-    lastManualFeedTime = 0;
-    localStorage.removeItem('last_manual_feed_time');
-    feedCooldownTimer.classList.add('hidden');
-    profileMenu.classList.add('hidden');
-    addLog("Manual Feed Cooldown has been reset.", "success");
-});
-
-demoModeBtn.addEventListener('click', () => {
-    toggleDemoMode();
-});
-
 profileTrigger.addEventListener('click', (e) => {
     e.stopPropagation();
     profileMenu.classList.toggle('hidden');
@@ -1095,7 +1333,6 @@ profileMenu.addEventListener('click', (e) => {
     e.stopPropagation();
 });
 
-document.getElementById('add-egg-btn').addEventListener('click', logEggs);
 document.getElementById('clear-log').addEventListener('click', () => {
     terminalLog.innerHTML = '';
     addLog("Terminal cleared.");
@@ -1116,20 +1353,4 @@ setInterval(() => {
     currentDateDisplay.textContent = now.toLocaleDateString('en-US', { 
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
     });
-
-    // Update Feed Cooldown Timer
-    if (lastManualFeedTime !== 0) {
-        const nowMs = now.getTime();
-        if (nowMs - lastManualFeedTime < COOLDOWN_24H) {
-            const remainingMs = COOLDOWN_24H - (nowMs - lastManualFeedTime);
-            const hours = Math.floor(remainingMs / 3600000);
-            const mins = Math.floor((remainingMs % 3600000) / 60000);
-            const secs = Math.floor((remainingMs % 60000) / 1000);
-            
-            feedCooldownTimer.textContent = `(${hours}h ${mins}m ${secs}s left)`;
-            feedCooldownTimer.classList.remove('hidden');
-        } else {
-            feedCooldownTimer.classList.add('hidden');
-        }
-    }
 }, 1000);

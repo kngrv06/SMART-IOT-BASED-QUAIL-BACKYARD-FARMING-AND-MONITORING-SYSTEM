@@ -86,230 +86,210 @@
                     </button>
                     <!-- Hidden Profile Menu -->
                     <div id="profile-menu" class="hidden absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-stone-200 p-2 z-50">
-                        <button id="reset-feed-cooldown" class="w-full text-left px-4 py-2 text-[10px] font-bold text-amber-600 uppercase tracking-widest hover:bg-amber-50 rounded-lg transition-colors">
-                            Reset Feed Cooldown
-                        </button>
-                        <button id="demo-mode-btn" class="w-full text-left px-4 py-2 text-[10px] font-bold text-emerald-600 uppercase tracking-widest hover:bg-emerald-50 rounded-lg transition-colors flex items-center justify-between">
-                            <span>Demo Mode</span>
-                            <span id="demo-status" class="text-[8px] px-1.5 py-0.5 bg-stone-100 text-stone-400 rounded">OFF</span>
+                        <button id="logout-btn-menu" class="w-full text-left px-4 py-2 text-[10px] font-bold text-red-500 uppercase tracking-widest hover:bg-red-50 rounded-lg transition-colors">
+                            Logout
                         </button>
                     </div>
                 </div>
             </div>
         </header>
 
-        <!-- Sensor Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- Temperature -->
-            <div id="card-v0" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <span id="icon-v0" class="p-2 bg-orange-50 text-orange-600 rounded-lg transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                    </span>
-                    <span id="note-v0" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Checking...</span>
-                </div>
-                <h3 id="title-v0" class="text-stone-500 text-sm font-medium uppercase tracking-wider transition-colors">Temperature</h3>
-                <div class="flex items-baseline gap-1 mt-2">
-                    <span id="val-v0" class="text-4xl font-bold text-stone-800 transition-colors">--</span>
-                    <span id="unit-v0" class="text-xl text-stone-400 transition-colors">°C</span>
-                </div>
-                <div id="bar-cont-v0" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden transition-colors">
-                    <div id="bar-v0" class="h-full bg-orange-500 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <!-- Legend -->
-                <div class="mt-4 pt-4 border-t border-stone-50 grid grid-cols-3 gap-1 text-[7px] font-bold uppercase tracking-tighter">
-                    <div id="leg-v0-crit" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-red-500">&lt;18 | &gt;27</span>
+            <!-- Sensor Grid -->
+            <div class="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Temperature -->
+                <div id="card-v0" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <span id="icon-v0" class="p-2 bg-stone-50 text-stone-500 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                        </span>
+                        <span id="note-v0" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Status: --</span>
                     </div>
-                    <div id="leg-v0-warn" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-amber-500">18-20 | 25-27</span>
+                    <h3 id="title-v0" class="text-stone-500 text-sm font-medium uppercase tracking-wider">Temperature</h3>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span id="val-v0" class="text-5xl font-bold text-stone-800 transition-colors">--</span>
+                        <span id="unit-v0" class="text-xl text-stone-400 transition-colors">°C</span>
                     </div>
-                    <div id="leg-v0-opt" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-emerald-500">21-24</span>
+                    <div id="bar-cont-v0" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                        <div id="bar-v0" class="h-full bg-orange-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Humidity -->
-            <div id="card-v1" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <span id="icon-v1" class="p-2 bg-blue-50 text-blue-600 rounded-lg transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                        </svg>
-                    </span>
-                    <span id="note-v1" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Checking...</span>
-                </div>
-                <h3 id="title-v1" class="text-stone-500 text-sm font-medium uppercase tracking-wider transition-colors">Humidity</h3>
-                <div class="flex items-baseline gap-1 mt-2">
-                    <span id="val-v1" class="text-4xl font-bold text-stone-800 transition-colors">--</span>
-                    <span id="unit-v1" class="text-xl text-stone-400 transition-colors">%</span>
-                </div>
-                <div id="bar-cont-v1" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden transition-colors">
-                    <div id="bar-v1" class="h-full bg-blue-500 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <!-- Legend -->
-                <div class="mt-4 pt-4 border-t border-stone-50 grid grid-cols-3 gap-1 text-[7px] font-bold uppercase tracking-tighter">
-                    <div id="leg-v1-crit" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-red-500">&lt;35 | &gt;75</span>
+                <!-- Humidity -->
+                <div id="card-v1" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <span id="icon-v1" class="p-2 bg-stone-50 text-stone-500 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                            </svg>
+                        </span>
+                        <span id="note-v1" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Status: --</span>
                     </div>
-                    <div id="leg-v1-warn" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-amber-500">35-40 | 70-75</span>
+                    <h3 id="title-v1" class="text-stone-500 text-sm font-medium uppercase tracking-wider">Humidity</h3>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span id="val-v1" class="text-5xl font-bold text-stone-800 transition-colors">--</span>
+                        <span id="unit-v1" class="text-xl text-stone-400 transition-colors">%</span>
                     </div>
-                    <div id="leg-v1-opt" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-emerald-500">40-70</span>
+                    <div id="bar-cont-v1" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                        <div id="bar-v1" class="h-full bg-blue-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Ammonia -->
-            <div id="card-v2" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <span id="icon-v2" class="p-2 bg-purple-50 text-purple-600 rounded-lg transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </span>
-                    <span id="note-v2" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Checking...</span>
-                </div>
-                <h3 id="title-v2" class="text-stone-500 text-sm font-medium uppercase tracking-wider transition-colors">Ammonia</h3>
-                <div class="flex items-baseline gap-1 mt-2">
-                    <span id="val-v2" class="text-4xl font-bold text-stone-800 transition-colors">--</span>
-                    <span id="unit-v2" class="text-xl text-stone-400 transition-colors"></span>
-                </div>
-                <div id="bar-cont-v2" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden transition-colors">
-                    <div id="bar-v2" class="h-full bg-purple-500 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <!-- Legend -->
-                <div class="mt-4 pt-4 border-t border-stone-50 grid grid-cols-3 gap-1 text-[7px] font-bold uppercase tracking-tighter">
-                    <div id="leg-v2-crit" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-red-500">&gt;2000</span>
+                <!-- Ammonia -->
+                <div id="card-v2" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <span id="icon-v2" class="p-2 bg-stone-50 text-stone-500 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </span>
+                        <span id="note-v2" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Status: --</span>
                     </div>
-                    <div id="leg-v2-warn" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-amber-500">1000-2000</span>
+                    <h3 id="title-v2" class="text-stone-500 text-sm font-medium uppercase tracking-wider">Ammonia</h3>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span id="val-v2" class="text-5xl font-bold text-stone-800 transition-colors">--</span>
+                        <span id="unit-v2" class="text-xl text-stone-400 transition-colors"></span>
                     </div>
-                    <div id="leg-v2-opt" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-emerald-500">&lt;1000</span>
+                    <div id="bar-cont-v2" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                        <div id="bar-v2" class="h-full bg-purple-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Feed Level -->
-            <div id="card-v3" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <span id="icon-v3" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                        </svg>
-                    </span>
-                    <span id="note-v3" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Checking...</span>
-                </div>
-                <h3 id="title-v3" class="text-stone-500 text-sm font-medium uppercase tracking-wider transition-colors">Feed Level</h3>
-                <div class="flex items-baseline gap-1 mt-2">
-                    <span id="val-v3" class="text-4xl font-bold text-stone-800 transition-colors">--</span>
-                    <span id="unit-v3" class="text-xl text-stone-400 transition-colors">%</span>
-                </div>
-                <div id="bar-cont-v3" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden transition-colors">
-                    <div id="bar-v3" class="h-full bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <!-- Legend -->
-                <div class="mt-4 pt-4 border-t border-stone-50 grid grid-cols-3 gap-1 text-[7px] font-bold uppercase tracking-tighter">
-                    <div id="leg-v3-crit" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-red-500">&lt;10</span>
+                <!-- Feed Level -->
+                <div id="card-v3" class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 hover:border-emerald-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <span id="icon-v3" class="p-2 bg-stone-50 text-stone-500 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                            </svg>
+                        </span>
+                        <span id="note-v3" class="text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-widest bg-stone-100 text-stone-400">Status: --</span>
                     </div>
-                    <div id="leg-v3-warn" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-amber-500">10-20</span>
+                    <h3 id="title-v3" class="text-stone-500 text-sm font-medium uppercase tracking-wider">Feed Level</h3>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span id="val-v3" class="text-5xl font-bold text-stone-800 transition-colors">--</span>
+                        <span id="unit-v3" class="text-xl text-stone-400 transition-colors">%</span>
                     </div>
-                    <div id="leg-v3-opt" class="flex flex-col items-center justify-center p-1 rounded border border-transparent transition-all">
-                        <span class="text-emerald-500">&gt;20</span>
+                    <div id="bar-cont-v3" class="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden">
+                        <div id="bar-v3" class="h-full bg-emerald-500 transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Threshold Legends -->
-        <div class="bg-white p-4 rounded-xl border border-stone-200 flex flex-wrap gap-6 justify-center text-[10px] font-bold uppercase tracking-widest text-stone-500">
-            <div class="flex items-center gap-2">
-                <span class="w-3 h-3 bg-emerald-500 rounded-sm"></span>
-                Optimal
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="w-3 h-3 bg-amber-500 rounded-sm"></span>
-                Warning
-            </div>
-            <div class="flex items-center gap-2">
-                <span class="w-3 h-3 bg-red-500 rounded-sm"></span>
-                Critical
+        <!-- Reference Legends Row -->
+        <div class="mt-4">
+            <div class="bg-white p-3 rounded-xl shadow-sm border border-stone-200">
+                <h3 class="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Reference Legends
+                </h3>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
+                    <!-- Temp -->
+                    <div class="border-l-2 border-stone-100 pl-3">
+                        <p class="text-[9px] font-bold text-stone-500 uppercase mb-1">Temperature</p>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-emerald-600"><span>✅ Optimal: 21°C – 24°C</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-amber-500"><span>⚠️ Warning: 18°C – 21°C or 24°C – 27°C</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-red-600"><span>🚨 Critical: Below 18°C or Above 27°C</span></div>
+                        </div>
+                    </div>
+                    <!-- Hum -->
+                    <div class="border-l-2 border-stone-100 pl-3">
+                        <p class="text-[9px] font-bold text-stone-500 uppercase mb-1">Humidity</p>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-emerald-600"><span>✅ Optimal: 40% – 70%</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-amber-500"><span>⚠️ Warning: 35% – 40% or 70% – 75%</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-red-600"><span>🚨 Critical: Below 35% or Above 75%</span></div>
+                        </div>
+                    </div>
+                    <!-- Amm -->
+                    <div class="border-l-2 border-stone-100 pl-3">
+                        <p class="text-[9px] font-bold text-stone-500 uppercase mb-1">Ammonia</p>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-emerald-600"><span>✅ Optimal: Below 900</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-amber-500"><span>⚠️ Warning: 900 – 1500</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-red-600"><span>🚨 Critical: Above 1500</span></div>
+                        </div>
+                    </div>
+                    <!-- Feed -->
+                    <div class="border-l-2 border-stone-100 pl-3">
+                        <p class="text-[9px] font-bold text-stone-500 uppercase mb-1">Feed Level</p>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-emerald-600"><span>✅ Optimal: Above 20%</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-amber-500"><span>⚠️ Warning: 10% – 20%</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-red-600"><span>🚨 Critical: Below 10%</span></div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Controls & Schedules -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Actuators -->
-            <div class="lg:col-span-2 bg-white p-8 rounded-2xl shadow-sm border border-stone-200">
-                <h3 class="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2">
+        <!-- Controls Row -->
+        <div class="mt-8">
+            <!-- Manual Controls -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                <h3 class="text-lg font-bold text-stone-800 mb-4 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
                     Manual Controls
                 </h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     <!-- Fan -->
-                    <div class="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
-                        <div>
-                            <p class="font-bold text-stone-700">Cooling Fan</p>
-                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Temperature Control</p>
+                    <div class="flex items-center justify-between p-2 bg-stone-50 rounded-lg border border-stone-100">
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] font-bold text-stone-700 truncate">Fan</p>
                         </div>
-                        <button id="btn-v10" class="toggle-btn w-14 h-8 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
-                            <span class="dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300"></span>
+                        <button id="btn-v10" class="toggle-btn w-8 h-5 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
+                            <span class="dot absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300"></span>
                         </button>
                     </div>
                     <!-- Heater -->
-                    <div class="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
-                        <div>
-                            <p class="font-bold text-stone-700">Heater Unit</p>
-                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Temperature Control</p>
+                    <div class="flex items-center justify-between p-2 bg-stone-50 rounded-lg border border-stone-100">
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] font-bold text-stone-700 truncate">Heater</p>
                         </div>
-                        <button id="btn-v11" class="toggle-btn w-14 h-8 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
-                            <span class="dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300"></span>
+                        <button id="btn-v11" class="toggle-btn w-8 h-5 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
+                            <span class="dot absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300"></span>
                         </button>
                     </div>
                     <!-- Light -->
-                    <div class="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
-                        <div>
-                            <p class="font-bold text-stone-700">Night Light</p>
-                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Lighting Control</p>
+                    <div class="flex items-center justify-between p-2 bg-stone-50 rounded-lg border border-stone-100">
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] font-bold text-stone-700 truncate">Light</p>
                         </div>
-                        <button id="btn-v12" class="toggle-btn w-14 h-8 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
-                            <span class="dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300"></span>
+                        <button id="btn-v12" class="toggle-btn w-8 h-5 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
+                            <span class="dot absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300"></span>
                         </button>
                     </div>
                     <!-- Cleaner -->
-                    <div class="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
-                        <div>
-                            <p class="font-bold text-stone-700">Stool Cleaner</p>
-                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Waste Management</p>
+                    <div class="flex items-center justify-between p-2 bg-stone-50 rounded-lg border border-stone-100">
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] font-bold text-stone-700 truncate">Cleaner</p>
                         </div>
-                        <button id="btn-v13" class="toggle-btn w-14 h-8 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
-                            <span class="dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300"></span>
+                        <button id="btn-v13" class="toggle-btn w-8 h-5 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
+                            <span class="dot absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300"></span>
                         </button>
                     </div>
-                    <!-- Feed Control -->
-                    <div class="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100">
-                        <div>
-                            <p class="font-bold text-stone-700">Feed Control</p>
-                            <p class="text-[10px] text-stone-400 uppercase tracking-widest">Feeding Mechanism <span id="feed-cooldown-timer" class="text-amber-600 ml-2 hidden"></span></p>
+                    <!-- Feed -->
+                    <div class="flex items-center justify-between p-2 bg-stone-50 rounded-lg border border-stone-100">
+                        <div class="overflow-hidden">
+                            <p class="text-[10px] font-bold text-stone-700 truncate">Feed</p>
                         </div>
-                        <button id="btn-v4" class="toggle-btn w-14 h-8 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
-                            <span class="dot absolute left-1 top-1 w-6 h-6 bg-white rounded-full transition-transform duration-300"></span>
+                        <button id="btn-v4" class="toggle-btn w-8 h-5 bg-stone-300 rounded-full relative transition-colors duration-300 focus:outline-none">
+                            <span class="dot absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform duration-300"></span>
                         </button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Schedules -->
+        <!-- Automation Settings -->
+        <div class="mt-8">
             <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-200">
                 <h3 class="text-xl font-bold text-stone-800 mb-6 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -317,7 +297,7 @@
                     </svg>
                     Automation Settings
                 </h3>
-                <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- Feed Schedule -->
                     <div class="p-4 bg-stone-50 rounded-xl border border-stone-100">
                         <p class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Feed Schedule</p>
@@ -348,25 +328,24 @@
                         </div>
                     </div>
 
-                    <!-- Night Light Schedule -->
+                    <!-- Light Schedule -->
                     <div class="p-4 bg-stone-50 rounded-xl border border-stone-100">
-                        <p class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Night Light Hours</p>
+                        <p class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Light Schedule</p>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] text-stone-500 uppercase font-bold mb-1">Start</label>
-                                <input type="time" id="light-start" value="18:00" class="w-full px-2 py-1.5 rounded bg-white border border-stone-200 text-sm outline-none focus:ring-1 focus:ring-emerald-500">
+                                <input type="time" id="light-start" class="w-full px-2 py-1.5 rounded bg-white border border-stone-200 text-sm outline-none focus:ring-1 focus:ring-emerald-500">
                             </div>
                             <div>
                                 <label class="block text-[10px] text-stone-500 uppercase font-bold mb-1">End</label>
-                                <input type="time" id="light-end" value="06:00" class="w-full px-2 py-1.5 rounded bg-white border border-stone-200 text-sm outline-none focus:ring-1 focus:ring-emerald-500">
+                                <input type="time" id="light-end" class="w-full px-2 py-1.5 rounded bg-white border border-stone-200 text-sm outline-none focus:ring-1 focus:ring-emerald-500">
                             </div>
                         </div>
                     </div>
-                    
-                    <button id="save-settings" class="w-full py-2.5 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded-lg transition-colors uppercase tracking-widest">
-                        Save Settings to Farm
-                    </button>
                 </div>
+                <button id="save-settings" class="w-full mt-6 py-2.5 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded-lg transition-colors uppercase tracking-widest">
+                    Save Settings to Farm
+                </button>
             </div>
         </div>
 
@@ -399,59 +378,78 @@
                     </div>
                     
                     <!-- Ammonia Chart -->
-                    <div class="space-y-2">
+                    <div class="space-y-2 md:col-span-2">
                         <p class="text-[10px] font-bold text-purple-500 uppercase tracking-widest text-center">Ammonia (Raw)</p>
                         <div class="h-48 w-full">
                             <canvas id="ammChart"></canvas>
                         </div>
                     </div>
-                    
-                    <!-- Eggs Chart -->
-                    <div class="space-y-2">
-                        <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest text-center">Daily Egg Production</p>
-                        <div class="h-48 w-full">
-                            <canvas id="eggsChart"></canvas>
-                        </div>
-                    </div>
                 </div>
             </div>
 
-            <!-- History & Egg Log -->
-            <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-200">
+            <!-- History & Log -->
+            <div class="bg-white p-8 rounded-2xl shadow-sm border border-stone-200 lg:col-span-2">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-xl font-bold text-stone-800 flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Daily Averages
+                        Farm Sensor History
                     </h3>
                     <div class="flex gap-2">
-                        <button id="reset-history-btn" class="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-full font-bold hover:bg-red-200 transition-colors">
-                            Reset History
-                        </button>
-                        <button id="edit-egg-btn" class="text-xs bg-stone-100 text-stone-600 px-3 py-1.5 rounded-full font-bold hover:bg-stone-200 transition-colors">
-                            Edit Today's Eggs
-                        </button>
-                        <button id="add-egg-btn" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-bold hover:bg-emerald-200 transition-colors">
-                            + Log Eggs
+                        <button id="generate-report-btn" class="text-xs bg-emerald-600 text-white px-4 py-1.5 rounded-full font-bold hover:bg-emerald-700 transition-colors flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2m8-12V5a2 2 0 00-2-2H9a2 2 0 00-2-2v4h10z" />
+                            </svg>
+                            Generate Report
                         </button>
                     </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="text-xs text-stone-400 uppercase tracking-widest border-bottom border-stone-100">
-                                <th class="pb-4 font-bold">Date</th>
-                                <th class="pb-4 font-bold">Avg Temp</th>
-                                <th class="pb-4 font-bold">Avg Hum.</th>
-                                <th class="pb-4 font-bold">Avg Amm.</th>
-                                <th class="pb-4 font-bold">Eggs</th>
-                            </tr>
-                        </thead>
-                        <tbody id="history-table" class="text-sm text-stone-600">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
+                <div id="history-tabs" class="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-stone-200">
+                    <!-- Date tabs populated by JS -->
+                </div>
+                
+                <div id="history-content" class="space-y-6">
+                    <div id="daily-average-banner" class="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 hidden">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="p-2 bg-emerald-600 text-white rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                            </div>
+                            <h4 class="text-sm font-black text-emerald-900 uppercase tracking-widest">Daily Performance Average</h4>
+                        </div>
+                        <div class="grid grid-cols-3 gap-8 text-center">
+                            <div class="bg-white/50 p-3 rounded-xl">
+                                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Temperature</p>
+                                <p id="avg-temp-val" class="text-xl font-bold text-stone-800">--</p>
+                            </div>
+                            <div class="bg-white/50 p-3 rounded-xl">
+                                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Humidity</p>
+                                <p id="avg-hum-val" class="text-xl font-bold text-stone-800">--</p>
+                            </div>
+                            <div class="bg-white/50 p-3 rounded-xl">
+                                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Ammonia</p>
+                                <p id="avg-amm-val" class="text-xl font-bold text-stone-800">--</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="text-xs text-stone-400 uppercase tracking-widest border-b border-stone-100">
+                                    <th class="pb-4 font-bold">Time</th>
+                                    <th class="pb-4 font-bold">Temperature</th>
+                                    <th class="pb-4 font-bold">Humidity</th>
+                                    <th class="pb-4 font-bold">Ammonia Level</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table" class="text-sm text-stone-600">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -467,27 +465,6 @@
                 <div id="terminal-log" class="h-64 overflow-y-auto font-mono text-xs space-y-1 scrollbar-thin scrollbar-thumb-stone-700">
                     <div class="text-stone-500">[05:13:18] System initialized. Waiting for Blynk connection...</div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-stone-900/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border border-stone-200 text-center">
-            <div class="inline-block p-3 bg-red-100 rounded-full mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
-            <h3 class="text-xl font-bold text-stone-800 mb-2">Are you sure?</h3>
-            <p id="confirm-message" class="text-stone-500 mb-6 text-sm">This action cannot be undone. All logged daily records will be cleared.</p>
-            <div class="flex gap-3">
-                <button id="confirm-cancel" class="flex-1 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-lg font-bold transition-colors">
-                    Cancel
-                </button>
-                <button id="confirm-proceed" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors shadow-lg shadow-red-200">
-                    Reset
-                </button>
             </div>
         </div>
     </div>

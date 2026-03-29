@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "SensorLog": {
+      "title": "Sensor Log",
+      "description": "Historical sensor data logged from the farm.",
+      "type": "object",
+      "properties": {
+        "temperature": { "type": "number", "description": "Temperature in Celsius" },
+        "humidity": { "type": "number", "description": "Humidity percentage" },
+        "ammonia": { "type": "number", "description": "Ammonia level (raw value)" },
+        "feedLevel": { "type": "number", "description": "Feed level percentage" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "dateStr": { "type": "string", "description": "Formatted date" },
+        "timeStr": { "type": "string", "description": "Formatted time" },
+        "userId": { "type": "string", "description": "UID of the user" }
+      },
+      "required": ["temperature", "humidity", "ammonia", "feedLevel", "timestamp", "userId"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "System alerts and notifications.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Notification title" },
+        "body": { "type": "string", "description": "Notification message" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Server timestamp" },
+        "userId": { "type": "string", "description": "UID of the user" },
+        "read": { "type": "boolean", "description": "Whether the notification has been read" }
+      },
+      "required": ["title", "body", "timestamp", "userId"]
+    }
+  },
+  "firestore": {
+    "/sensor_logs/{logId}": {
+      "schema": "SensorLog",
+      "description": "Collection of sensor data logs."
+    },
+    "/sensor_logs/XYiDZz0uH1xk0IL7KjK3": {
+      "schema": "SensorLog",
+      "description": "Latest sensor status document."
+    },
+    "/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "Collection of system notifications."
+    }
+  }
+}
